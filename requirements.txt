@@ -1,0 +1,7 @@
+faster-whisper
+silero-vad
+onnxruntime
+sounddevice
+numpy
+scipy
+huggingface_hub
