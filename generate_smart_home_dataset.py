@@ -6,59 +6,65 @@ from typing import Dict, Any, Optional, List, Tuple
 
 random.seed(42)
 
-ROOMS = ["bathroom", "kitchen", "bedroom", "living_room", "default"]
+# 1. EXPANDED MAIN ROOM LIST
+ROOMS = [
+    "bathroom", "kitchen", "bedroom", "living_room", 
+    "dining_room", "study", "balcony", "hallway", "entryway", "default"
+]
 
+# 2. UPDATED ALIASES (Now includes Study, Balcony, etc.)
 ROOM_ALIASES_ZH = {
     "bathroom": ["廁所", "浴室", "洗手間"],
     "kitchen": ["廚房"],
-    "bedroom": ["房間", "臥室", "主臥", "我的房間"],
+    "bedroom": ["房間", "臥室", "主臥"],
     "living_room": ["客廳", "大廳"],
+    "dining_room": ["餐廳", "飯廳"],      # Moved from Extra
+    "study": ["書房", "辦公室", "工作區"], # Moved from Extra
+    "balcony": ["陽台", "露台"],          # Moved from Extra
+    "hallway": ["走廊", "過道"],          # Moved from Extra
+    "entryway": ["玄關", "門口"],         # Moved from Extra
     "default": ["家裡", "全部", "所有地方"],
 }
+
 ROOM_ALIASES_EN = {
     "bathroom": ["bathroom", "restroom"],
     "kitchen": ["kitchen"],
     "bedroom": ["bedroom"],
     "living_room": ["living room"],
+    "dining_room": ["dining room"],       # Moved from Extra
+    "study": ["study", "office", "workspace"], # Moved from Extra
+    "balcony": ["balcony", "terrace"],    # Moved from Extra
+    "hallway": ["hallway", "corridor"],   # Moved from Extra
+    "entryway": ["entryway", "foyer"],    # Moved from Extra
     "default": ["the house", "everywhere"],
 }
 
+# 3. SHRUNK EXTRA LISTS (Only truly unsupported rooms remain)
 EXTRA_ROOM_ALIASES_ZH = {
-    "study": ["書房", "辦公室"],
-    "dining": ["餐廳"],
-    "hallway": ["走廊"],
-    "balcony": ["陽台"],
-    "entryway": ["玄關", "門口"],
     "guest_room": ["客房"],
     "kids_room": ["小孩房", "兒童房"],
     "garage": ["車庫"],
     "basement": ["地下室"],
     "attic": ["頂樓"],
+    "closet": ["儲藏室", "衣帽間"],
 }
 EXTRA_ROOM_ALIASES_EN = {
-    "study": ["study", "office"],
-    "dining": ["dining room"],
-    "hallway": ["hallway", "corridor"],
-    "balcony": ["balcony"],
-    "entryway": ["entryway", "foyer"],
     "guest_room": ["guest room"],
     "kids_room": ["kids room", "children's room"],
     "garage": ["garage"],
     "basement": ["basement"],
     "attic": ["attic"],
+    "closet": ["closet", "pantry"],
 }
 
+# Map these unsupported extras to supported targets
 EXTRA_ROOM_TO_TARGET = {
-    "study": "bedroom",
-    "dining": "living_room",
-    "entryway": "living_room",
     "guest_room": "bedroom",
     "kids_room": "bedroom",
-    "hallway": "default",
-    "balcony": "default",
     "garage": "default",
     "basement": "default",
     "attic": "default",
+    "closet": "default",
 }
 
 SWITCH_DEVICES = [
@@ -100,17 +106,22 @@ def clamp_conf(x: float) -> float:
     return max(0.0, min(1.0, round(x, 2)))
 
 def pick_room_word_and_target(base_target: str) -> Tuple[str, str]:
+    # 70% chance: Use the canonical name or alias of the supported room
     if random.random() < 0.70:
         if random.random() < 0.5:
             return zh_room(base_target), base_target
         return en_room(base_target), base_target
 
+    # 30% chance: Pick an unsupported room (e.g., Garage) and map it
+    # This ensures the model learns that "Garage" -> "default" (or specific mapping)
     extra_key = random.choice(list(EXTRA_ROOM_TO_TARGET.keys()))
     normalized_target = EXTRA_ROOM_TO_TARGET[extra_key]
+    
     if random.random() < 0.5:
         room_word = random.choice(EXTRA_ROOM_ALIASES_ZH[extra_key])
     else:
         room_word = random.choice(EXTRA_ROOM_ALIASES_EN[extra_key])
+        
     return room_word, normalized_target
 
 def _value_to_str(v):

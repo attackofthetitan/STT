@@ -35,12 +35,10 @@ SCHEMA (output keys and allowed enums)
   "confidence": 0.0
 }
 
-ROOM NORMALIZATION
-- bathroom: 廁所/浴室/洗手間/restroom/bathroom
-- kitchen: 廚房/kitchen
-- bedroom: 房間/臥室/主臥/我的房間/bedroom
-- living_room: 客廳/大廳/living room
-- If no room mentioned: target="default" for commands; target=null for transcripts.
+LOGIC & NORMALIZATION
+- Allowed Rooms: ["bathroom", "kitchen", "bedroom", "living_room", "dining_room", "study", "balcony", "hallway", "entryway"].
+- Room Normalization: Map input phrases to the closest allowed room (e.g., "office" -> "study", "foyer" -> "entryway").
+- Default Target: If NO room is mentioned, set "target": "default".
 
 TRANSCRIPT RULE
 If not a smart-home command:
