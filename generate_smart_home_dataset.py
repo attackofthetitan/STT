@@ -372,28 +372,39 @@ def gen_media() -> Example:
 def gen_covers() -> Example:
     base_room = pick_room()
     room_word, norm_target = pick_room_word_and_target(base_room)
-    dev = random.choice(["curtain", "blinds"])
+    
+    # Explicitly map text keywords to device types
+    # (Device Type, List of keywords to use in text)
+    device_map = [
+        ("curtain", ["curtain", "窗簾", "布簾"]),
+        ("blinds", ["blinds", "百葉窗", "捲簾"])
+    ]
+    dev_type, keywords = random.choice(device_map)
+    dev_word = random.choice(keywords) # Use this specific word in the text
+    
     style = random.choice(["openclose", "position", "implicit"])
 
     if style == "openclose":
         oc = random.choice(["open", "close"])
         phr = random.choice([
-            f"{oc.title()} the {room_word} {dev}",
-            f"把{room_word}窗簾{'打開' if oc == 'open' else '拉上'}",
-            f"{oc.title()} the {dev}"
+            f"{oc.title()} the {room_word} {dev_word}",
+            f"把{room_word}{dev_word}{'打開' if oc == 'open' else '拉上'}",
+            f"{oc.title()} the {dev_word}"
         ])
         final_target = norm_target if room_word in phr else "default"
-        return emit_command("covers", oc, final_target, None, make_slots(device=dev), phr, 0.88)
+        return emit_command("covers", oc, final_target, None, make_slots(device=dev_type), phr, 0.88)
 
     if style == "position":
         pos = random.choice([10, 25, 50, 75, 90])
         phr = random.choice([
-            f"Set the {room_word} {dev} to {pos}%", f"{room_word}窗簾開{pos}%",
-            "窗簾開一半" if pos == 50 else f"窗簾開到{pos}%",
+            f"Set the {room_word} {dev_word} to {pos}%", 
+            f"{room_word}{dev_word}開{pos}%",
+            f"{dev_word}開到{pos}%",
         ])
         final_target = norm_target if room_word in phr else "default"
-        return emit_command("covers", "set", final_target, None, make_slots(device=dev, mode="position", value=pos, unit="percent"), phr, 0.84)
+        return emit_command("covers", "set", final_target, None, make_slots(device=dev_type, mode="position", value=pos, unit="percent"), phr, 0.84)
 
+    # Implicit (defaults to curtain usually)
     phr = random.choice([
         "太亮了把窗簾拉起來", "陽光好大", "Make it darker", "It's too bright by the window"
     ])
@@ -418,24 +429,28 @@ def gen_locks() -> Example:
     return emit_transcript(phr, 0.18)
 
 def gen_vacuum() -> Example:
-    style = random.choice(["startstop", "dock", "room", "implicit"])
-    if style == "startstop":
-        act = random.choice(["start", "stop", "pause", "resume"])
-        phr = random.choice(["Start vacuuming", "Stop the robot vacuum", "暫停掃地機", "繼續掃"])
-        return emit_command("vacuum", act, "default", None, make_slots(device="robot_vacuum"), phr, 0.84)
-
-    if style == "dock":
-        phr = random.choice(["回充電座", "Send the vacuum to the dock"])
-        return emit_command("vacuum", "set", "default", None, make_slots(device="robot_vacuum", mode="dock", value=True), phr, 0.80)
-
-    if style == "room":
-        base_room = pick_room(weight_default=0.0)
-        room_word, norm_target = pick_room_word_and_target(base_room)
-        phr = random.choice([f"掃一下{room_word}", f"Clean the {room_word}"])
+    base_room = pick_room(weight_default=0.0)
+    room_word, norm_target = pick_room_word_and_target(base_room)
+    
+    # 1. Start/Stop/Pause/Resume Logic
+    # Tuple: (Action, Phrase List)
+    actions = [
+        ("start", ["Start vacuuming", "開始掃地", "掃地機啟動", "Clean the floor"]),
+        ("stop", ["Stop the robot vacuum", "停止掃地", "不要掃了", "Stop vacuuming"]),
+        ("pause", ["Pause the vacuum", "暫停掃地機", "先暫停一下"]),
+        ("resume", ["Resume cleaning", "繼續掃", "繼續工作"]),
+        ("set", [f"掃一下{room_word}", f"Clean the {room_word}"]) # Room mode
+    ]
+    
+    act, phrases = random.choice(actions)
+    phr = random.choice(phrases)
+    
+    # Special handling for "room" mode
+    if act == "set":
         return emit_command("vacuum", "set", norm_target, None, make_slots(device="robot_vacuum", mode="room", value=norm_target), phr, 0.78)
-
-    phr = random.choice(["地板有點髒", "可以掃一下嗎", "Lots of dust on the floor"])
-    return emit_command("vacuum", "start", "default", None, make_slots(device="robot_vacuum"), phr, 0.66)
+        
+    # Standard handling
+    return emit_command("vacuum", act, "default", None, make_slots(device="robot_vacuum"), phr, 0.84)
 
 def gen_timer() -> Example:
     style = random.choice(["set", "cancel", "query"])
@@ -501,15 +516,19 @@ def gen_query() -> Example:
 
 def gen_transcript() -> Example:
     texts = [
-        "Hello there", "今天天氣好冷", "我晚點再說", "請幫我寄信給Jerry 謝謝",
-        "你覺得怎麼樣", "turn on the light... uh actually never mind",
-        "我剛剛說到哪", "哈哈哈", "幫我訂披薩", "你可以幫我查一下明天的行程嗎",
-        "我想買一台掃地機", "電視壞掉了怎麼辦", "冷氣好像有點怪怪的",
-        "門鎖是不是該換了", "窗簾好漂亮", "我想開心一點", "把我的心門打開",
-        "Turn on your charm", "Can you open my mind?",
+        # Chat
+        "Hello there", "今天天氣好冷", "我晚點再說", "你覺得怎麼樣", "哈哈哈",
+        "turn on the light... uh actually never mind", "我剛剛說到哪",
+        "我想開心一點", "Turn on your charm",
+        # Shopping / Ordering (CRITICAL NEGATIVES)
+        "幫我訂披薩", "Order a pizza", "I want to buy a new vacuum",
+        "我想買一台掃地機", "Buy me a new TV", "幫我網購一台冷氣",
+        # Maintenance
+        "電視壞掉了怎麼辦", "冷氣好像有點怪怪的", "門鎖是不是該換了",
+        "窗簾好漂亮", "掃地機卡住了", "The vacuum is stuck"
     ]
     t = random.choice(texts)
-    base = 0.08 if ("Hello" in t or "哈哈" in t) else 0.18
+    base = 0.08 if ("Hello" in t or "哈哈" in t) else 0.15
     return emit_transcript(t, base)
 
 GENERATORS = [
