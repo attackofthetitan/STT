@@ -6,7 +6,6 @@ from typing import Dict, Any, Optional, List, Tuple
 
 random.seed(42)
 
-
 ROOMS = [
     "bathroom", "kitchen", "bedroom", "living_room", 
     "dining_room", "study", "balcony", "hallway", "entryway", "default"
@@ -46,6 +45,7 @@ EXTRA_ROOM_ALIASES_ZH = {
     "attic": ["頂樓"],
     "closet": ["儲藏室", "衣帽間"],
 }
+
 EXTRA_ROOM_ALIASES_EN = {
     "guest_room": ["guest room"],
     "kids_room": ["kids room", "children's room"],
@@ -69,24 +69,69 @@ SWITCH_DEVICES = [
     "dehumidifier", "heater", "coffee_maker", "rice_cooker",
     "kettle", "water_heater", "washer", "dryer", "oven",
 ]
+
 SWITCH_DEV_ZH = {
-    "fan": "風扇",
-    "humidifier": "加濕器",
-    "diffuser": "香氛機",
-    "plug": "插座",
-    "air_purifier": "空氣清淨機",
-    "dehumidifier": "除濕機",
-    "heater": "暖氣",
-    "coffee_maker": "咖啡機",
-    "rice_cooker": "電鍋",
-    "kettle": "熱水壺",
-    "water_heater": "熱水器",
-    "washer": "洗衣機",
-    "dryer": "烘衣機",
-    "oven": "烤箱",
+    "fan": ["風扇", "電扇", "循環扇"],
+    "humidifier": ["加濕器", "水氧機"],
+    "diffuser": ["香氛機", "擴香"],
+    "plug": ["插座", "插頭", "電源"],
+    "air_purifier": ["空氣清淨機", "清淨機"],
+    "dehumidifier": ["除濕機"],
+    "heater": ["暖氣", "暖爐", "電暖器"],
+    "coffee_maker": ["咖啡機"],
+    "rice_cooker": ["電鍋", "電子鍋"],
+    "kettle": ["熱水壺", "快煮壺"],
+    "water_heater": ["熱水器"],
+    "washer": ["洗衣機"],
+    "dryer": ["烘衣機"],
+    "oven": ["烤箱"],
 }
 
-MEDIA_AUDIO_DEVICES = ["speaker", "soundbar"]
+SWITCH_DEV_EN = {
+    "fan": ["fan", "ceiling fan", "desk fan", "ventilator"],
+    "humidifier": ["humidifier"],
+    "diffuser": ["diffuser", "aroma diffuser"],
+    "plug": ["plug", "socket", "outlet", "smart plug"],
+    "air_purifier": ["air purifier", "purifier"],
+    "dehumidifier": ["dehumidifier"],
+    "heater": ["heater", "radiator", "space heater"],
+    "coffee_maker": ["coffee maker", "coffee machine"],
+    "rice_cooker": ["rice cooker"],
+    "kettle": ["kettle", "electric kettle"],
+    "water_heater": ["water heater", "boiler"],
+    "washer": ["washer", "washing machine"],
+    "dryer": ["dryer", "clothes dryer"],
+    "oven": ["oven"],
+}
+
+DEVICE_VARIANTS_EN = {
+    "light": ["light", "lights", "lamp", "lamps", "lighting", "LEDs", "strip lights", "ceiling light", "reading lamp", "spotlight", "chandelier", "downlight"],
+    "ac": ["AC", "air conditioner", "A/C", "cooling unit", "air con", "thermostat", "climate control"],
+    "tv": ["TV", "television", "telly", "screen", "display", "monitor", "smart TV"],
+    "vacuum": ["vacuum", "robot vacuum", "roomba", "sweeper", "bot", "cleaner", "mopping robot"],
+    "curtain": ["curtain", "drapes", "shades", "blinds", "shutters", "blackout curtains", "roller shades"],
+    "speaker": ["speaker", "sound system", "audio", "woofer", "bluetooth speaker"],
+    "soundbar": ["soundbar", "sound bar"],
+}
+
+DEVICE_VARIANTS_ZH = {
+    "light": ["燈", "電燈", "照明", "光", "檯燈", "吊燈", "吸頂燈", "落地燈", "壁燈", "LED燈", "嵌燈"],
+    "ac": ["冷氣", "空調", "冷氣機", "暖氣", "恆溫器"],
+    "tv": ["電視", "電視機", "螢幕", "顯示器"],
+    "vacuum": ["掃地機", "吸塵器", "機器人", "掃地機器人", "拖地機", "掃拖機"],
+    "curtain": ["窗簾", "布簾", "百葉窗", "捲簾", "遮光簾", "紗簾"],
+    "speaker": ["喇叭", "音響", "揚聲器", "藍芽喇叭"],
+    "soundbar": ["聲霸", "家庭劇院"],
+}
+
+ADJECTIVES_EN = ["main", "big", "small", "ceiling", "floor", "desk", "bedside", "reading", "smart", "old", "new"]
+ADJECTIVES_ZH = ["主", "大", "小", "天花板", "地板", "桌上", "床頭", "閱讀", "智慧", "舊", "新"]
+
+FILLERS_EN = ["uh", "um", "like", "you know", "actually", "er", "ah", "maybe", "please", "hmm", "well"]
+FILLERS_ZH = ["那個", "呃", "嗯", "就是", "那個...應...", "阿", "好像是", "麻煩", "欸", "我想"]
+
+PREFIXES_EN = ["Could you", "Please", "Can you", "Hey,", "I need you to", "Would you mind to", "Just", "Quickly", "Go ahead and", "Time to", "Help me"]
+PREFIXES_ZH = ["麻煩", "請", "幫我", "可以幫我", "那個", "欸", "快速", "我想", "這時候", "去"]
 
 def pick_room(weight_default: float = 0.25) -> str:
     if random.random() < weight_default:
@@ -102,24 +147,26 @@ def en_room(room: str) -> str:
 def clamp_conf(x: float) -> float:
     return max(0.0, min(1.0, round(x, 2)))
 
-def pick_room_word_and_target(base_target: str) -> Tuple[str, str]:
-    # 70% chance: Use the canonical name or alias of the supported room
+def pick_room_word_and_target(base_target: str) -> Tuple[str, str, str]:
+    lang = "mix"
     if random.random() < 0.70:
         if random.random() < 0.5:
-            return zh_room(base_target), base_target
-        return en_room(base_target), base_target
+            lang = "zh"
+            return zh_room(base_target), base_target, lang
+        lang = "en"
+        return en_room(base_target), base_target, lang
 
-    # 30% chance: Pick an unsupported room (e.g., Garage) and map it
-    # This ensures the model learns that "Garage" -> "default" (or specific mapping)
     extra_key = random.choice(list(EXTRA_ROOM_TO_TARGET.keys()))
     normalized_target = EXTRA_ROOM_TO_TARGET[extra_key]
     
     if random.random() < 0.5:
+        lang = "zh"
         room_word = random.choice(EXTRA_ROOM_ALIASES_ZH[extra_key])
     else:
+        lang = "en"
         room_word = random.choice(EXTRA_ROOM_ALIASES_EN[extra_key])
         
-    return room_word, normalized_target
+    return room_word, normalized_target, lang
 
 def _value_to_str(v):
     if v is None: return None
@@ -165,377 +212,420 @@ def emit_transcript(text, base_conf=0.15) -> Example:
     conf = clamp_conf(base_conf + random.uniform(-0.10, 0.10))
     return Example("transcript", "unknown", "none", None, None, make_slots(), text, conf)
 
-def resolve_target(text: str, room_word: str, norm_target: str) -> str:
-    if room_word in text:
-        return norm_target
-    return "default"
+def inject_noise(text: str, lang: str, prob: float = 0.45) -> str:
+    if random.random() > prob:
+        return text
+
+    words = text.split()
+    if not words: return text
+
+    fillers = FILLERS_ZH if lang == "zh" else FILLERS_EN
+    
+    if random.random() < 0.3:
+        words.insert(0, random.choice(fillers) + "...")
+    
+    if len(words) > 2 and random.random() < 0.4:
+        idx = random.randint(1, len(words)-1)
+        words.insert(idx, random.choice(fillers))
+
+    if random.random() < 0.2:
+        idx = random.randint(0, len(words)-1)
+        words.insert(idx, words[idx])
+
+    return " ".join(words)
+
+def get_granular_device(dev_type: str, lang: str) -> str:
+    if lang == "zh":
+        variants = DEVICE_VARIANTS_ZH.get(dev_type, [dev_type])
+        base = random.choice(variants)
+        if random.random() < 0.25:
+            adj = random.choice(ADJECTIVES_ZH)
+            return f"{adj}{base}"
+        return base
+    else:
+        variants = DEVICE_VARIANTS_EN.get(dev_type, [dev_type])
+        base = random.choice(variants)
+        if random.random() < 0.25:
+            adj = random.choice(ADJECTIVES_EN)
+            return f"{adj} {base}"
+        return base
+
+def get_granular_switch(dev_type: str, lang: str) -> str:
+    if lang == "zh":
+        variants = SWITCH_DEV_ZH.get(dev_type, [dev_type])
+        base = random.choice(variants)
+        if random.random() < 0.15:
+            adj = random.choice(ADJECTIVES_ZH)
+            return f"{adj}{base}"
+        return base
+    else:
+        variants = SWITCH_DEV_EN.get(dev_type, [dev_type])
+        base = random.choice(variants)
+        if random.random() < 0.15:
+            adj = random.choice(ADJECTIVES_EN)
+            return f"{adj} {base}"
+        return base
 
 def gen_lights() -> Example:
     base_room = pick_room()
-    room_word, norm_target = pick_room_word_and_target(base_room)
+    room_word, norm_target, lang = pick_room_word_and_target(base_room)
     
-    style = random.choice(["zh", "en", "mix", "implicit"])
+    dev_word = get_granular_device("light", lang)
     onoff = random.choice(["on", "off"])
     action = "turn_on" if onoff == "on" else "turn_off"
 
-    if style == "zh":
-        phr = random.choice([
-            f"幫我開{room_word}燈", f"請把{room_word}燈打開", f"{room_word}燈開一下",
-        ]) if onoff == "on" else random.choice([
-            f"幫我關{room_word}燈", f"請把{room_word}燈關掉", f"{room_word}燈關一下",
+    if lang == "zh":
+        verbs = ["打開", "開一下", "開啟", "啟動", "亮起來"] if onoff == "on" else ["關掉", "關一下", "關閉", "熄滅"]
+        verb = random.choice(verbs)
+        prefix = random.choice(PREFIXES_ZH) if random.random() < 0.4 else ""
+        
+        structure = random.choice([
+            f"{prefix}{verb}{room_word}{dev_word}",
+            f"{prefix}{room_word}{dev_word}{verb}",
+            f"把{room_word}{dev_word}{verb}",
+            f"{room_word}{dev_word}幫我{verb}"
         ])
-        return emit_command("lights", action, norm_target, onoff, make_slots(device="light"), phr, 0.92)
-
-    if style == "en":
-        phr = random.choice([
-            f"Turn on the {room_word} lights", f"Switch on the {room_word} light",
-        ]) if onoff == "on" else random.choice([
-            f"Turn off the {room_word} lights", f"Switch off the {room_word} light",
+    else:
+        verbs = ["turn on", "switch on", "activate", "enable", "power on"] if onoff == "on" else ["turn off", "switch off", "deactivate", "disable", "kill", "cut"]
+        verb = random.choice(verbs)
+        prefix = random.choice(PREFIXES_EN) if random.random() < 0.4 else ""
+        
+        structure = random.choice([
+            f"{prefix} {verb} the {room_word} {dev_word}",
+            f"{prefix} {verb} the {dev_word} in the {room_word}",
+            f"{room_word} {dev_word} {verb}",
+            f"{prefix} make the {room_word} {dev_word} {onoff}"
         ])
-        return emit_command("lights", action, norm_target, onoff, make_slots(device="light"), phr, 0.92)
-
-    if style == "mix":
-        phr = random.choice([
-            f"turn on {room_word}燈", f"Turn off {room_word}燈",
-            f"{room_word} light on", f"{room_word} light off",
-        ])
-        inferred = "on" if ("on" in phr and "off" not in phr) else "off"
-        act = "turn_on" if inferred == "on" else "turn_off"
-        return emit_command("lights", act, norm_target, inferred, make_slots(device="light"), phr, 0.85)
-
-    # Implicit - often implies current room (default) unless room explicitly named
-    phr_opts = [
-        (f"{room_word}有點暗", True),
-        (f"{room_word}太暗了", True),
-        (f"{room_word}太亮了", True),
-        ("有點暗耶", False),
-        ("太亮了", False),
-        ("Make it brighter", False),
-        ("It's too bright", False),
-    ]
-    phr, uses_room = random.choice(phr_opts)
-    final_target = norm_target if uses_room else "default"
     
-    if ("太亮" in phr) or ("too bright" in phr):
-        return emit_command("lights", "turn_off", final_target, "off", make_slots(device="light"), phr, 0.70)
-    return emit_command("lights", "turn_on", final_target, "on", make_slots(device="light"), phr, 0.70)
+    phr = inject_noise(structure.strip(), lang)
+    return emit_command("lights", action, norm_target, onoff, make_slots(device="light"), phr, 0.92)
 
 def gen_switches() -> Example:
     base_room = pick_room()
-    room_word, norm_target = pick_room_word_and_target(base_room)
+    room_word, norm_target, lang = pick_room_word_and_target(base_room)
     dev = random.choice(SWITCH_DEVICES)
+    dev_word = get_granular_switch(dev, lang)
+    
     onoff = random.choice(["on", "off"])
     action = "turn_on" if onoff == "on" else "turn_off"
-    style = random.choice(["zh", "en", "mix", "implicit"])
 
-    if style == "zh":
-        name = SWITCH_DEV_ZH[dev]
-        phr = random.choice([
-            f"幫我把{room_word}{name}打開", f"{room_word}{name}開一下",
-        ]) if onoff == "on" else random.choice([
-            f"幫我把{room_word}{name}關掉", f"{room_word}{name}關一下",
+    if lang == "zh":
+        verbs = ["打開", "開一下", "開啟"] if onoff == "on" else ["關掉", "關一下", "關閉"]
+        verb = random.choice(verbs)
+        prefix = random.choice(PREFIXES_ZH) if random.random() < 0.4 else ""
+        
+        structure = random.choice([
+            f"{prefix}幫我把{room_word}{dev_word}{verb}",
+            f"{prefix}{room_word}{dev_word}{verb}",
+            f"{dev_word}在{room_word}{verb}"
         ])
-        return emit_command("switches", action, norm_target, onoff, make_slots(device=dev), phr, 0.86)
-
-    if style == "en":
-        phr = random.choice([
-            f"Turn on the {dev} in the {room_word}", f"Switch on the {dev}",
-        ]) if onoff == "on" else random.choice([
-            f"Turn off the {dev} in the {room_word}", f"Switch off the {dev}",
+    else:
+        verbs = ["turn on", "switch on", "start"] if onoff == "on" else ["turn off", "switch off", "stop"]
+        verb = random.choice(verbs)
+        prefix = random.choice(PREFIXES_EN) if random.random() < 0.4 else ""
+        
+        structure = random.choice([
+            f"{prefix} {verb} the {dev_word} in the {room_word}",
+            f"{prefix} {verb} the {room_word} {dev_word}",
+            f"{room_word} {dev_word} {verb}"
         ])
-        final_target = norm_target if room_word in phr else "default"
-        return emit_command("switches", action, final_target, onoff, make_slots(device=dev), phr, 0.84)
 
-    if style == "implicit":
-        phr_opts = [
-            (f"{room_word}好悶", True),
-            (f"{room_word}有點臭", True),
-            (f"{room_word}太潮了", True),
-            (f"It's too humid in the {room_word}", True),
-            (f"It smells in the {room_word}", True),
-            ("空氣不太好", False),
-            ("有點悶", False),
-            ("好潮濕", False),
-        ]
-        phr, uses_room = random.choice(phr_opts)
-        final_target = norm_target if uses_room else "default"
-
-        if ("潮" in phr) or ("humid" in phr):
-            return emit_command("switches", "turn_on", final_target, "on", make_slots(device="dehumidifier"), phr, 0.65)
-        if ("悶" in phr):
-            return emit_command("switches", "turn_on", final_target, "on", make_slots(device="fan"), phr, 0.62)
-        return emit_command("switches", "turn_on", final_target, "on", make_slots(device="air_purifier"), phr, 0.62)
-
-    phr = random.choice([f"turn on {room_word} {dev}", f"turn off {room_word} {dev}"])
-    inferred = "on" if "on" in phr else "off"
-    act = "turn_on" if inferred == "on" else "turn_off"
-    return emit_command("switches", act, norm_target, inferred, make_slots(device=dev), phr, 0.80)
+    final_target = norm_target if room_word in structure else "default"
+    phr = inject_noise(structure.strip(), lang)
+    return emit_command("switches", action, final_target, onoff, make_slots(device=dev), phr, 0.86)
 
 def gen_climate() -> Example:
     base_room = pick_room()
-    room_word, norm_target = pick_room_word_and_target(base_room)
-    style = random.choice(["zh_power", "en_power", "set", "mode", "delta", "implicit"])
+    room_word, norm_target, lang = pick_room_word_and_target(base_room)
+    style = random.choice(["power", "set", "mode", "delta", "implicit"])
+    dev_word = get_granular_device("ac", lang)
 
-    if style == "zh_power":
-        phr = random.choice([f"開{room_word}冷氣", f"{room_word}冷氣打開", "冷氣打開"])
-        final_target = norm_target if room_word in phr else "default"
-        return emit_command("climate", "turn_on", final_target, "on", make_slots(device="ac", mode="cool"), phr, 0.90)
-
-    if style == "en_power":
+    if style == "power":
         onoff = random.choice(["on", "off"])
         action = "turn_on" if onoff == "on" else "turn_off"
-        phr = random.choice([
-            f"Turn {onoff} the AC in the {room_word}", f"Switch {onoff} the air conditioner"
-        ])
+        if lang == "zh":
+            v = "打開" if onoff == "on" else "關掉"
+            phr = f"{room_word}{dev_word}{v}" if random.random() < 0.6 else f"把{dev_word}{v}"
+        else:
+            v = "turn on" if onoff == "on" else "turn off"
+            phr = f"{v} the {room_word} {dev_word}" if random.random() < 0.6 else f"{v} the {dev_word}"
+        
         final_target = norm_target if room_word in phr else "default"
-        return emit_command("climate", action, final_target, onoff, make_slots(device="ac"), phr, 0.88)
+        phr = inject_noise(phr, lang)
+        return emit_command("climate", action, final_target, onoff, make_slots(device="ac"), phr, 0.90)
 
     if style == "set":
-        temp = random.choice([18, 20, 22, 24, 26, 28])
-        phr = random.choice([
-            f"{room_word}冷氣調到{temp}度", f"Set the {room_word} temperature to {temp}", f"把溫度設{temp}度"
-        ])
+        temp = random.randint(16, 30)
+        if lang == "zh":
+            phr = random.choice([
+                f"{room_word}{dev_word}調到{temp}度", 
+                f"溫度設為{temp}",
+                f"幫我把{room_word}氣溫設在{temp}"
+            ])
+        else:
+            phr = random.choice([
+                f"set {room_word} {dev_word} to {temp} degrees", 
+                f"make it {temp} degrees in the {room_word}",
+                f"change temp to {temp}"
+            ])
+        
         final_target = norm_target if room_word in phr else "default"
+        phr = inject_noise(phr, lang)
         return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="c", mode="setpoint"), phr, 0.86)
 
     if style == "mode":
         mode = random.choice(["cool", "heat", "dry", "fan_only"])
-        zh_mode = {"cool": "冷房", "heat": "暖房", "dry": "除濕", "fan_only": "送風"}[mode]
-        phr = random.choice([f"{room_word}冷氣切到{zh_mode}", f"Set AC mode to {mode}"])
+        if lang == "zh":
+            zh_mode = {"cool": "冷房", "heat": "暖房", "dry": "除濕", "fan_only": "送風"}[mode]
+            phr = f"{room_word}{dev_word}切到{zh_mode}"
+        else:
+            phr = f"set {room_word} {dev_word} mode to {mode}"
+        
         final_target = norm_target if room_word in phr else "default"
+        phr = inject_noise(phr, lang)
         return emit_command("climate", "set", final_target, None, make_slots(device="ac", mode=mode), phr, 0.82)
 
     if style == "delta":
-        delta = random.choice([1, 2, 3])
+        delta = random.randint(1, 5)
         inc = random.choice([True, False])
-        phr = random.choice([
-            f"溫度調高{delta}度" if inc else f"溫度調低{delta}度",
-            f"Make it {delta} degrees warmer" if inc else f"Make it {delta} degrees cooler",
-        ])
+        if lang == "zh":
+            phr = f"溫度調{'高' if inc else '低'}{delta}度"
+        else:
+            phr = f"turn the temperature {'up' if inc else 'down'} by {delta} degrees"
+        
+        phr = inject_noise(phr, lang)
         return emit_command("climate", "increase" if inc else "decrease", "default", None, make_slots(device="thermostat", value=delta, unit="c"), phr, 0.76)
 
     phr_opts = [
-        (f"{room_word}好熱", True), (f"{room_word}有點冷", True),
-        ("有點悶", False), ("It's too hot", False), ("I'm freezing", False),
+        (f"{room_word}好熱", True, "cool"), (f"{room_word}有點冷", True, "heat"),
+        ("有點悶", False, "cool"), ("It's too hot", False, "cool"), ("I'm freezing", False, "heat"),
     ]
-    phr, uses_room = random.choice(phr_opts)
+    base_phr, uses_room, mode = random.choice(phr_opts)
     final_target = norm_target if uses_room else "default"
-
-    if ("熱" in phr) or ("too hot" in phr):
-        return emit_command("climate", "turn_on", final_target, "on", make_slots(device="ac", mode="cool"), phr, 0.62)
-    if ("冷" in phr) or ("freezing" in phr):
-        return emit_command("climate", "set", final_target, None, make_slots(device="ac", mode="heat"), phr, 0.58)
-    return emit_command("climate", "turn_on", final_target, "on", make_slots(device="ac", mode="cool"), phr, 0.58)
+    phr = inject_noise(base_phr, lang)
+    return emit_command("climate", "turn_on", final_target, "on", make_slots(device="ac", mode=mode), phr, 0.60)
 
 def gen_media() -> Example:
     base_room = pick_room()
-    room_word, norm_target = pick_room_word_and_target(base_room)
+    room_word, norm_target, lang = pick_room_word_and_target(base_room)
     style = random.choice(["tv_power", "audio_power", "playback", "volume", "source", "implicit"])
-
+    
     if style == "tv_power":
+        dev_word = get_granular_device("tv", lang)
         onoff = random.choice(["on", "off"])
-        phr = random.choice([
-            f"Turn {onoff} the TV in the {room_word}", f"{'開' if onoff == 'on' else '關'}一下{room_word}電視",
-            f"Turn {onoff} the TV"
-        ])
-        final_target = norm_target if room_word in phr else "default"
         action = "turn_on" if onoff == "on" else "turn_off"
-        return emit_command("media", action, final_target, onoff, make_slots(device="tv"), phr, 0.86)
+        if lang == "zh":
+            phr = f"幫我{room_word}{dev_word}{'打開' if onoff == 'on' else '關掉'}"
+        else:
+            phr = f"turn {onoff} the {room_word} {dev_word}"
+        
+        phr = inject_noise(phr, lang)
+        return emit_command("media", action, norm_target, onoff, make_slots(device="tv"), phr, 0.86)
 
     if style == "audio_power":
-        dev = random.choice(MEDIA_AUDIO_DEVICES)
+        dev = random.choice(["speaker", "soundbar"])
+        dev_word = get_granular_device(dev, lang)
         onoff = random.choice(["on", "off"])
         action = "turn_on" if onoff == "on" else "turn_off"
-        zh_name = "喇叭" if dev == "speaker" else "soundbar"
-        phr = random.choice([
-            f"{room_word}{zh_name}{'打開' if onoff == 'on' else '關掉'}",
-            f"Turn {onoff} the {dev} in the {room_word}",
-        ])
+        if lang == "zh":
+            phr = f"{room_word}{dev_word}{'開一下' if onoff == 'on' else '關一下'}"
+        else:
+            phr = f"switch {onoff} the {room_word} {dev_word}"
+        
+        phr = inject_noise(phr, lang)
         return emit_command("media", action, norm_target, onoff, make_slots(device=dev), phr, 0.82)
 
     if style == "playback":
-        action = random.choice(["pause", "resume", "stop"])
-        phr = random.choice(["Pause the music", "繼續播放", "Stop playback", "先暫停一下"])
+        action = random.choice(["pause", "resume", "stop", "next", "previous"])
+        if lang == "zh":
+            phr = random.choice(["暫停播放", "繼續放", "停止", "下一首", "上一首"])
+        else:
+            phr = random.choice(["pause music", "resume playback", "stop", "next track", "previous song"])
+        
+        phr = inject_noise(phr, lang)
         return emit_command("media", action, "default", None, make_slots(device="music"), phr, 0.80)
 
     if style == "volume":
         direction = random.choice(["increase", "decrease"])
-        val = random.choice([1, 2, 3, 5, 10])
-        phr = random.choice([
-            f"Volume {'up' if direction == 'increase' else 'down'} {val}",
-            "小聲一點" if direction == "decrease" else "大聲一點",
-        ])
+        val = random.randint(1, 20)
+        if lang == "zh":
+            phr = f"音量調{'大' if direction == 'increase' else '小'}{val}"
+        else:
+            phr = f"turn volume {'up' if direction == 'increase' else 'down'} to {val}"
+        
+        phr = inject_noise(phr, lang)
         return emit_command("media", direction, "default", None, make_slots(device="volume", value=val, unit="step"), phr, 0.78)
 
     if style == "source":
-        src = random.choice(["HDMI1", "HDMI2", "YouTube", "Netflix"])
-        phr = random.choice([f"Switch TV to {src}", f"電視切到{src}"])
+        src = random.choice(["HDMI1", "HDMI2", "YouTube", "Netflix", "Spotify"])
+        if lang == "zh":
+            phr = f"電視切到{src}"
+        else:
+            phr = f"switch TV input to {src}"
+        phr = inject_noise(phr, lang)
         return emit_command("media", "set", "default", None, make_slots(device="tv", mode="source", value=src), phr, 0.78)
 
     phr = random.choice(["太吵了", "小聲一點", "聽不到耶", "It’s too loud", "I can’t hear it"])
-    if ("聽不到" in phr) or ("can’t hear" in phr):
+    phr = inject_noise(phr, lang)
+    if ("聽不到" in phr) or ("hear" in phr):
         return emit_command("media", "increase", "default", None, make_slots(device="volume", value=2, unit="step"), phr, 0.62)
     return emit_command("media", "decrease", "default", None, make_slots(device="volume", value=2, unit="step"), phr, 0.62)
 
 def gen_covers() -> Example:
     base_room = pick_room()
-    room_word, norm_target = pick_room_word_and_target(base_room)
-    
-    # Explicitly map text keywords to device types
-    # (Device Type, List of keywords to use in text)
-    device_map = [
-        ("curtain", ["curtain", "窗簾", "布簾"]),
-        ("blinds", ["blinds", "百葉窗", "捲簾"])
-    ]
-    dev_type, keywords = random.choice(device_map)
-    dev_word = random.choice(keywords) # Use this specific word in the text
-    
+    room_word, norm_target, lang = pick_room_word_and_target(base_room)
+    dev_word = get_granular_device("curtain", lang)
     style = random.choice(["openclose", "position", "implicit"])
 
     if style == "openclose":
         oc = random.choice(["open", "close"])
-        phr = random.choice([
-            f"{oc.title()} the {room_word} {dev_word}",
-            f"把{room_word}{dev_word}{'打開' if oc == 'open' else '拉上'}",
-            f"{oc.title()} the {dev_word}"
-        ])
-        final_target = norm_target if room_word in phr else "default"
-        return emit_command("covers", oc, final_target, None, make_slots(device=dev_type), phr, 0.88)
+        if lang == "zh":
+            v = "打開" if oc == "open" else "拉上"
+            phr = f"把{room_word}{dev_word}{v}"
+        else:
+            phr = f"{oc} the {room_word} {dev_word}"
+        
+        phr = inject_noise(phr, lang)
+        return emit_command("covers", oc, norm_target, None, make_slots(device="curtain"), phr, 0.88)
 
     if style == "position":
-        pos = random.choice([10, 25, 50, 75, 90])
-        phr = random.choice([
-            f"Set the {room_word} {dev_word} to {pos}%", 
-            f"{room_word}{dev_word}開{pos}%",
-            f"{dev_word}開到{pos}%",
-        ])
-        final_target = norm_target if room_word in phr else "default"
-        return emit_command("covers", "set", final_target, None, make_slots(device=dev_type, mode="position", value=pos, unit="percent"), phr, 0.84)
+        pos = random.randint(0, 100)
+        if lang == "zh":
+            phr = f"{room_word}{dev_word}開到{pos}%"
+        else:
+            phr = f"set {room_word} {dev_word} to {pos} percent"
+        
+        phr = inject_noise(phr, lang)
+        return emit_command("covers", "set", norm_target, None, make_slots(device="curtain", mode="position", value=pos, unit="percent"), phr, 0.84)
 
-    # Implicit (defaults to curtain usually)
-    phr = random.choice([
-        "太亮了把窗簾拉起來", "陽光好大", "Make it darker", "It's too bright by the window"
-    ])
+    phr = random.choice(["太亮了", "陽光好大", "Make it darker", "Too bright in here"])
+    phr = inject_noise(phr, lang)
     return emit_command("covers", "close", "default", None, make_slots(device="curtain"), phr, 0.66)
 
 def gen_locks() -> Example:
-    style = random.choice(["en", "zh", "ambiguous"])
-    if style == "en":
-        act = random.choice(["lock", "unlock"])
-        phr = random.choice(["Lock the front door", "Lock the door"]) if act == "lock" else random.choice(["Unlock the front door", "Unlock the door"])
-        return emit_command("locks", act, "default", None, make_slots(device="front_door"), phr, 0.86)
-
-    if style == "zh":
-        phr = random.choice(["門鎖上", "把門鎖起來", "解鎖大門", "開門"])
-        if ("解鎖" in phr) or (phr == "開門"):
-            return emit_command("locks", "unlock", "default", None, make_slots(device="front_door"), phr, 0.78)
-        return emit_command("locks", "lock", "default", None, make_slots(device="front_door"), phr, 0.82)
-
-    phr = random.choice(["我回來了", "我出門了，門記得鎖"])
-    if "鎖" in phr:
-        return emit_command("locks", "lock", "default", None, make_slots(device="front_door"), phr, 0.68)
-    return emit_transcript(phr, 0.18)
+    lang = "zh" if random.random() < 0.5 else "en"
+    act = random.choice(["lock", "unlock"])
+    
+    if lang == "zh":
+        phr = random.choice(["把門鎖上", "鎖門", "大門解鎖", "開門"])
+        if ("解鎖" in phr) or (phr == "開門"): act = "unlock"
+        else: act = "lock"
+    else:
+        phr = f"{act} the front door"
+    
+    phr = inject_noise(phr, lang)
+    return emit_command("locks", act, "default", None, make_slots(device="front_door"), phr, 0.84)
 
 def gen_vacuum() -> Example:
     base_room = pick_room(weight_default=0.0)
-    room_word, norm_target = pick_room_word_and_target(base_room)
+    room_word, norm_target, lang = pick_room_word_and_target(base_room)
+    dev_word = get_granular_device("vacuum", lang)
     
-    # 1. Start/Stop/Pause/Resume Logic
-    # Tuple: (Action, Phrase List)
-    actions = [
-        ("start", ["Start vacuuming", "開始掃地", "掃地機啟動", "Clean the floor"]),
-        ("stop", ["Stop the robot vacuum", "停止掃地", "不要掃了", "Stop vacuuming"]),
-        ("pause", ["Pause the vacuum", "暫停掃地機", "先暫停一下"]),
-        ("resume", ["Resume cleaning", "繼續掃", "繼續工作"]),
-        ("set", [f"掃一下{room_word}", f"Clean the {room_word}"]) # Room mode
-    ]
-    
-    act, phrases = random.choice(actions)
-    phr = random.choice(phrases)
-    
-    # Special handling for "room" mode
+    actions = ["start", "stop", "pause", "resume", "dock", "set"]
+    act = random.choice(actions)
+
+    if lang == "zh":
+        v_map = {
+            "start": ["開始掃地", "啟動", "掃地"], 
+            "stop": ["停止", "不要掃了"], 
+            "pause": ["暫停"], 
+            "resume": ["繼續"], 
+            "dock": ["回去充電", "回充"], 
+            "set": [f"去掃{room_word}"]
+        }
+        phr = f"{dev_word}{random.choice(v_map[act])}"
+    else:
+        v_map = {
+            "start": ["start cleaning", "start"], 
+            "stop": ["stop", "stop cleaning"], 
+            "pause": ["pause"], 
+            "resume": ["resume"], 
+            "dock": ["dock", "return home"], 
+            "set": [f"clean the {room_word}"]
+        }
+        phr = f"{random.choice(v_map[act])} the {dev_word}"
+
     if act == "set":
-        return emit_command("vacuum", "set", norm_target, None, make_slots(device="robot_vacuum", mode="room", value=norm_target), phr, 0.78)
-        
-    # Standard handling
-    return emit_command("vacuum", act, "default", None, make_slots(device="robot_vacuum"), phr, 0.84)
+        target = norm_target
+        slots = make_slots(device="robot_vacuum", mode="room", value=norm_target)
+    else:
+        target = "default"
+        slots = make_slots(device="robot_vacuum")
+
+    phr = inject_noise(phr, lang)
+    return emit_command("vacuum", act, target, None, slots, phr, 0.84)
 
 def gen_timer() -> Example:
+    base_room = pick_room()
+    room_word, norm_target, lang = pick_room_word_and_target(base_room)
     style = random.choice(["set", "cancel", "query"])
+    
     if style == "set":
-        minutes = random.choice([1, 3, 5, 10, 15, 30, 45, 60])
-        base_room = pick_room()
-        room_word, norm_target = pick_room_word_and_target(base_room)
-        phr = random.choice([
-            f"幫我計時{minutes}分鐘", f"Set a {minutes} minute timer", f"在{room_word}設{minutes}分鐘計時"
-        ])
-        final_target = norm_target if room_word in phr else "default"
-        return emit_command("timer", "set", final_target, None, make_slots(device="timer", value=minutes, unit="min", duration_sec=minutes * 60), phr, 0.90)
+        val = random.randint(1, 120)
+        is_sec = random.random() < 0.2
+        unit = "sec" if is_sec else "min"
+        duration = val if is_sec else val * 60
+        
+        if lang == "zh":
+            u_str = "秒" if is_sec else "分鐘"
+            phr = f"幫我計時{val}{u_str}"
+        else:
+            u_str = "seconds" if is_sec else "minutes"
+            phr = f"set a timer for {val} {u_str}"
+            
+        phr = inject_noise(phr, lang)
+        return emit_command("timer", "set", norm_target, None, make_slots(device="timer", value=val, unit=unit, duration_sec=duration), phr, 0.90)
 
     if style == "cancel":
-        phr = random.choice(["Cancel the timer", "把計時器取消", "停止計時"])
+        phr = "取消計時" if lang == "zh" else "cancel the timer"
+        phr = inject_noise(phr, lang)
         return emit_command("timer", "stop", "default", None, make_slots(device="timer", mode="cancel"), phr, 0.86)
 
-    phr = random.choice(["還剩多久？", "timer 還有幾分鐘", "How much time left?"])
+    phr = "還有多久" if lang == "zh" else "how much time left"
+    phr = inject_noise(phr, lang)
     return emit_command("timer", "query", "default", None, make_slots(device="timer", mode="remaining"), phr, 0.76)
 
 def gen_scene() -> Example:
     base_room = pick_room()
-    room_word, norm_target = pick_room_word_and_target(base_room)
+    room_word, norm_target, lang = pick_room_word_and_target(base_room)
     scene = random.choice(["movie", "sleep", "away", "relax", "dinner", "work"])
     
-    phr_opts = [
-        (f"{scene} mode", False),
-        (f"切到{scene}模式", False),
-        (f"{room_word}開電影模式" if scene == "movie" else f"啟動{scene}模式", scene == "movie"),
-        ("Good night", False), ("I'm leaving", False),
-        (f"Set {scene} scene", False)
-    ]
-    phr, uses_room = random.choice(phr_opts)
-    if phr == "Good night": scene = "sleep"
-    if phr == "I'm leaving": scene = "away"
-    
-    final_target = norm_target if uses_room else "default"
-    return emit_command("scene", "set", final_target, None, make_slots(device="scene", scene=scene), phr, 0.78)
+    if lang == "zh":
+        phr = f"開啟{scene}模式"
+    else:
+        phr = f"activate {scene} scene"
+        
+    phr = inject_noise(phr, lang)
+    return emit_command("scene", "set", norm_target, None, make_slots(device="scene", scene=scene), phr, 0.78)
 
 def gen_query() -> Example:
     base_room = pick_room()
-    room_word, norm_target = pick_room_word_and_target(base_room)
-    qtype = random.choice(["light_state", "temp", "lock_state", "vacuum_state", "timer_remaining"])
+    room_word, norm_target, lang = pick_room_word_and_target(base_room)
+    qtype = random.choice(["light_state", "temp", "lock_state", "vacuum_state"])
 
     if qtype == "light_state":
-        phr = random.choice([f"{room_word}燈有開嗎", f"Is the {room_word} light on?"])
-        return emit_command("query", "query", norm_target, None, make_slots(device="light", mode="state"), phr, 0.86)
-
+        phr = f"{room_word}燈有開嗎" if lang == "zh" else f"is the {room_word} light on"
+        return emit_command("query", "query", norm_target, None, make_slots(device="light", mode="state"), inject_noise(phr, lang), 0.86)
+    
     if qtype == "temp":
-        phr = random.choice([f"{room_word}現在幾度？", f"What's the temperature in the {room_word}?"])
-        return emit_command("query", "query", norm_target, None, make_slots(device="temperature", mode="current", unit="c"), phr, 0.86)
+        phr = f"{room_word}幾度" if lang == "zh" else f"what's the temp in {room_word}"
+        return emit_command("query", "query", norm_target, None, make_slots(device="temperature", mode="current", unit="c"), inject_noise(phr, lang), 0.86)
 
-    if qtype == "lock_state":
-        phr = random.choice(["門有鎖嗎", "Is the front door locked?"])
-        return emit_command("query", "query", "default", None, make_slots(device="door_lock", mode="state"), phr, 0.80)
-
-    if qtype == "timer_remaining":
-        phr = random.choice(["計時器還剩多久", "Timer remaining?", "How much time left on the timer?"])
-        return emit_command("query", "query", "default", None, make_slots(device="timer", mode="remaining"), phr, 0.76)
-
-    phr = random.choice(["掃地機在工作嗎", "Is the vacuum running?"])
-    return emit_command("query", "query", "default", None, make_slots(device="robot_vacuum", mode="state"), phr, 0.78)
+    return emit_command("query", "query", "default", None, make_slots(device="generic"), inject_noise("what's going on", lang), 0.50)
 
 def gen_transcript() -> Example:
     texts = [
-        # Chat
         "Hello there", "今天天氣好冷", "我晚點再說", "你覺得怎麼樣", "哈哈哈",
         "turn on the light... uh actually never mind", "我剛剛說到哪",
         "我想開心一點", "Turn on your charm",
-        # Shopping / Ordering (CRITICAL NEGATIVES)
         "幫我訂披薩", "Order a pizza", "I want to buy a new vacuum",
         "我想買一台掃地機", "Buy me a new TV", "幫我網購一台冷氣",
-        # Maintenance
         "電視壞掉了怎麼辦", "冷氣好像有點怪怪的", "門鎖是不是該換了",
         "窗簾好漂亮", "掃地機卡住了", "The vacuum is stuck"
     ]
     t = random.choice(texts)
+    lang = "zh" if any(ord(c) > 128 for c in t) else "en"
+    t = inject_noise(t, lang)
     base = 0.08 if ("Hello" in t or "哈哈" in t) else 0.15
     return emit_transcript(t, base)
 
@@ -560,9 +650,16 @@ def generate(n: int, transcript_ratio: float = 0.30) -> List[Example]:
     probs = [weights[n] for n in names]
 
     out = []
-    for _ in range(n):
-        domain = random.choices(names, probs, k=1)[0]
-        out.append(name_to_fn[domain]())
+    
+    batch_size = 1000
+    generated = 0
+    while generated < n:
+        current_batch = min(batch_size, n - generated)
+        choices = random.choices(names, probs, k=current_batch)
+        for domain in choices:
+            out.append(name_to_fn[domain]())
+        generated += current_batch
+        
     return out
 
 def row_to_target_json(row: dict) -> dict:
@@ -589,7 +686,7 @@ def row_to_target_json(row: dict) -> dict:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--out", default="smart_home_multidomain.jsonl")
-    p.add_argument("--n", type=int, default=5000)
+    p.add_argument("--n", type=int, default=320000)
     p.add_argument("--transcript_ratio", type=float, default=0.30)
     args = p.parse_args()
 
