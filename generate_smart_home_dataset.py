@@ -228,7 +228,8 @@ def inject_noise(text: str, lang: str, prob: float = 0.45) -> str:
         idx = random.randint(1, len(words)-1)
         words.insert(idx, random.choice(fillers))
 
-    if random.random() < 0.2:
+    # Reduced duplicate probability from 0.2 to 0.1
+    if random.random() < 0.1:
         idx = random.randint(0, len(words)-1)
         words.insert(idx, words[idx])
 
@@ -330,8 +331,9 @@ def gen_switches() -> Example:
             f"{room_word} {dev_word} {verb}"
         ])
 
-    final_target = norm_target if room_word in structure else "default"
+    has_room = room_word in structure
     phr = inject_noise(structure.strip(), lang)
+    final_target = norm_target if has_room else "default"
     return emit_command("switches", action, final_target, onoff, make_slots(device=dev), phr, 0.86)
 
 def gen_climate() -> Example:
@@ -371,7 +373,7 @@ def gen_climate() -> Example:
         
         final_target = norm_target if room_word in phr else "default"
         phr = inject_noise(phr, lang)
-        return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="c", mode="setpoint"), phr, 0.86)
+        return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="setpoint"), phr, 0.86)
 
     if style == "mode":
         mode = random.choice(["cool", "heat", "dry", "fan_only"])
@@ -394,7 +396,7 @@ def gen_climate() -> Example:
             phr = f"turn the temperature {'up' if inc else 'down'} by {delta} degrees"
         
         phr = inject_noise(phr, lang)
-        return emit_command("climate", "increase" if inc else "decrease", "default", None, make_slots(device="thermostat", value=delta, unit="c"), phr, 0.76)
+        return emit_command("climate", "increase" if inc else "decrease", "default", None, make_slots(device="thermostat", value=delta, unit="celsius"), phr, 0.76)
 
     phr_opts = [
         (f"{room_word}好熱", True, "cool"), (f"{room_word}有點冷", True, "heat"),
@@ -469,7 +471,7 @@ def gen_media() -> Example:
             phr = f"turn volume {'up' if direction == 'increase' else 'down'} to {val}"
         
         phr = inject_noise(phr, lang)
-        return emit_command("media", direction, "default", None, make_slots(device="volume", value=val, unit="step"), phr, 0.78)
+        return emit_command("media", direction, "default", None, make_slots(device="volume", value=val, unit="percent"), phr, 0.78)
 
     if style == "source":
         src = random.choice(["HDMI1", "HDMI2", "YouTube", "Netflix", "Spotify"])
@@ -480,11 +482,11 @@ def gen_media() -> Example:
         phr = inject_noise(phr, lang)
         return emit_command("media", "set", "default", None, make_slots(device="tv", mode="source", value=src), phr, 0.78)
 
-    phr = random.choice(["太吵了", "小聲一點", "聽不到耶", "It’s too loud", "I can’t hear it"])
+    phr = random.choice(["太吵了", "小聲一點", "聽不到耶", "It's too loud", "I can't hear it"])
     phr = inject_noise(phr, lang)
     if ("聽不到" in phr) or ("hear" in phr):
-        return emit_command("media", "increase", "default", None, make_slots(device="volume", value=2, unit="step"), phr, 0.62)
-    return emit_command("media", "decrease", "default", None, make_slots(device="volume", value=2, unit="step"), phr, 0.62)
+        return emit_command("media", "increase", "default", None, make_slots(device="volume", value=2, unit="percent"), phr, 0.62)
+    return emit_command("media", "decrease", "default", None, make_slots(device="volume", value=2, unit="percent"), phr, 0.62)
 
 def gen_covers() -> Example:
     base_room = pick_room()
@@ -522,9 +524,10 @@ def gen_locks() -> Example:
     act = random.choice(["lock", "unlock"])
     
     if lang == "zh":
-        phr = random.choice(["把門鎖上", "鎖門", "大門解鎖", "開門"])
-        if ("解鎖" in phr) or (phr == "開門"): act = "unlock"
-        else: act = "lock"
+        if act == "lock":
+            phr = random.choice(["把門鎖上", "鎖門"])
+        else:
+            phr = random.choice(["大門解鎖", "開門"])
     else:
         phr = f"{act} the front door"
     
@@ -578,20 +581,30 @@ def gen_timer() -> Example:
     if style == "set":
         val = random.randint(1, 120)
         is_sec = random.random() < 0.2
-        unit = "sec" if is_sec else "min"
-        duration = val if is_sec else val * 60
+        
+        # Always store in seconds, keep original unit for reference
+        if is_sec:
+            duration_sec = val
+            unit = "seconds"
+            u_str = "秒" if lang == "zh" else "seconds"
+        else:
+            duration_sec = val * 60
+            unit = "minutes"
+            u_str = "分鐘" if lang == "zh" else "minutes"
         
         if lang == "zh":
-            u_str = "秒" if is_sec else "分鐘"
             phr = f"幫我計時{val}{u_str}"
         else:
-            u_str = "seconds" if is_sec else "minutes"
             phr = f"set a timer for {val} {u_str}"
             
+        has_room = room_word in phr
         phr = inject_noise(phr, lang)
-        final_target = norm_target if room_word in phr else "default"
+        final_target = norm_target if has_room else "default"
         
-        return emit_command("timer", "set", final_target, None, make_slots(device="timer", value=val, unit=unit, duration_sec=None), phr, 0.90)
+        # Provide value (original), unit (original), and duration_sec (always in seconds)
+        return emit_command("timer", "set", final_target, None, 
+            make_slots(device="timer", value=val, unit=unit, duration_sec=duration_sec), 
+            phr, 0.90)
 
     if style == "cancel":
         phr = "取消計時" if lang == "zh" else "cancel the timer"
@@ -612,9 +625,9 @@ def gen_scene() -> Example:
     else:
         phr = f"activate {scene} scene"
         
+    has_room = room_word in phr
     phr = inject_noise(phr, lang)
-    
-    final_target = norm_target if room_word in phr else "default"
+    final_target = norm_target if has_room else "default"
 
     return emit_command("scene", "set", final_target, None, make_slots(device="scene", scene=scene), phr, 0.78)
 
@@ -629,9 +642,14 @@ def gen_query() -> Example:
     
     if qtype == "temp":
         phr = f"{room_word}幾度" if lang == "zh" else f"what's the temp in {room_word}"
-        return emit_command("query", "query", norm_target, None, make_slots(device="temperature", mode="current", unit="c"), inject_noise(phr, lang), 0.86)
+        return emit_command("query", "query", norm_target, None, make_slots(device="temperature", mode="current", unit="celsius"), inject_noise(phr, lang), 0.86)
 
-    return emit_command("query", "query", "default", None, make_slots(device="generic"), inject_noise("what's going on", lang), 0.50)
+    if qtype == "lock_state":
+        phr = "門有鎖嗎" if lang == "zh" else "is the door locked"
+        return emit_command("query", "query", "default", None, make_slots(device="lock", mode="state"), inject_noise(phr, lang), 0.82)
+
+    phr = "掃地機在哪" if lang == "zh" else "where is the vacuum"
+    return emit_command("query", "query", "default", None, make_slots(device="vacuum", mode="location"), inject_noise(phr, lang), 0.78)
 
 def gen_transcript() -> Example:
     texts = [
@@ -646,7 +664,13 @@ def gen_transcript() -> Example:
     t = random.choice(texts)
     lang = "zh" if any(ord(c) > 128 for c in t) else "en"
     t = inject_noise(t, lang)
-    base = 0.08 if ("Hello" in t or "哈哈" in t) else 0.15
+    
+    # Inverted logic: greetings get higher base confidence
+    if "Hello" in t or "哈哈" in t:
+        base = 0.20
+    else:
+        base = 0.12
+    
     return emit_transcript(t, base)
 
 GENERATORS = [
