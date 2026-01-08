@@ -436,11 +436,26 @@ def gen_media() -> Example:
         return emit_command("media", action, norm_target, onoff, make_slots(device=dev), phr, 0.82)
 
     if style == "playback":
-        action = random.choice(["pause", "resume", "stop", "next", "previous"])
         if lang == "zh":
-            phr = random.choice(["暫停播放", "繼續放", "停止", "下一首", "上一首"])
+            map_zh = {
+                "pause": ["暫停播放", "先暫停"],
+                "resume": ["繼續放", "恢復播放"],
+                "stop": ["停止", "不要放了"],
+                "next": ["下一首", "切歌"],
+                "previous": ["上一首", "回上一首"]
+            }
+            action = random.choice(list(map_zh.keys()))
+            phr = random.choice(map_zh[action])
         else:
-            phr = random.choice(["pause music", "resume playback", "stop", "next track", "previous song"])
+            map_en = {
+                "pause": ["pause music", "pause"],
+                "resume": ["resume playback", "continue music"],
+                "stop": ["stop", "stop music"],
+                "next": ["next track", "skip song"],
+                "previous": ["previous song", "go back"]
+            }
+            action = random.choice(list(map_en.keys()))
+            phr = random.choice(map_en[action])
         
         phr = inject_noise(phr, lang)
         return emit_command("media", action, "default", None, make_slots(device="music"), phr, 0.80)
@@ -574,7 +589,9 @@ def gen_timer() -> Example:
             phr = f"set a timer for {val} {u_str}"
             
         phr = inject_noise(phr, lang)
-        return emit_command("timer", "set", norm_target, None, make_slots(device="timer", value=val, unit=unit, duration_sec=duration), phr, 0.90)
+        final_target = norm_target if room_word in phr else "default"
+        
+        return emit_command("timer", "set", final_target, None, make_slots(device="timer", value=val, unit=unit, duration_sec=None), phr, 0.90)
 
     if style == "cancel":
         phr = "取消計時" if lang == "zh" else "cancel the timer"
@@ -596,7 +613,10 @@ def gen_scene() -> Example:
         phr = f"activate {scene} scene"
         
     phr = inject_noise(phr, lang)
-    return emit_command("scene", "set", norm_target, None, make_slots(device="scene", scene=scene), phr, 0.78)
+    
+    final_target = norm_target if room_word in phr else "default"
+
+    return emit_command("scene", "set", final_target, None, make_slots(device="scene", scene=scene), phr, 0.78)
 
 def gen_query() -> Example:
     base_room = pick_room()
@@ -686,7 +706,7 @@ def row_to_target_json(row: dict) -> dict:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--out", default="smart_home_multidomain.jsonl")
-    p.add_argument("--n", type=int, default=320000)
+    p.add_argument("--n", type=int, default=5000)
     p.add_argument("--transcript_ratio", type=float, default=0.30)
     args = p.parse_args()
 
