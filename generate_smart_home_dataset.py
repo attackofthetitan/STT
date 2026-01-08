@@ -6,23 +6,22 @@ from typing import Dict, Any, Optional, List, Tuple
 
 random.seed(42)
 
-# 1. EXPANDED MAIN ROOM LIST
+
 ROOMS = [
     "bathroom", "kitchen", "bedroom", "living_room", 
     "dining_room", "study", "balcony", "hallway", "entryway", "default"
 ]
 
-# 2. UPDATED ALIASES (Now includes Study, Balcony, etc.)
 ROOM_ALIASES_ZH = {
     "bathroom": ["廁所", "浴室", "洗手間"],
     "kitchen": ["廚房"],
     "bedroom": ["房間", "臥室", "主臥"],
     "living_room": ["客廳", "大廳"],
-    "dining_room": ["餐廳", "飯廳"],      # Moved from Extra
-    "study": ["書房", "辦公室", "工作區"], # Moved from Extra
-    "balcony": ["陽台", "露台"],          # Moved from Extra
-    "hallway": ["走廊", "過道"],          # Moved from Extra
-    "entryway": ["玄關", "門口"],         # Moved from Extra
+    "dining_room": ["餐廳", "飯廳"],      
+    "study": ["書房", "辦公室", "工作區"], 
+    "balcony": ["陽台", "露台"],          
+    "hallway": ["走廊", "過道"],          
+    "entryway": ["玄關", "門口"],         
     "default": ["家裡", "全部", "所有地方"],
 }
 
@@ -31,15 +30,14 @@ ROOM_ALIASES_EN = {
     "kitchen": ["kitchen"],
     "bedroom": ["bedroom"],
     "living_room": ["living room"],
-    "dining_room": ["dining room"],       # Moved from Extra
-    "study": ["study", "office", "workspace"], # Moved from Extra
-    "balcony": ["balcony", "terrace"],    # Moved from Extra
-    "hallway": ["hallway", "corridor"],   # Moved from Extra
-    "entryway": ["entryway", "foyer"],    # Moved from Extra
+    "dining_room": ["dining room"],       
+    "study": ["study", "office", "workspace"], 
+    "balcony": ["balcony", "terrace"],    
+    "hallway": ["hallway", "corridor"],   
+    "entryway": ["entryway", "foyer"],    
     "default": ["the house", "everywhere"],
 }
 
-# 3. SHRUNK EXTRA LISTS (Only truly unsupported rooms remain)
 EXTRA_ROOM_ALIASES_ZH = {
     "guest_room": ["客房"],
     "kids_room": ["小孩房", "兒童房"],
@@ -57,7 +55,6 @@ EXTRA_ROOM_ALIASES_EN = {
     "closet": ["closet", "pantry"],
 }
 
-# Map these unsupported extras to supported targets
 EXTRA_ROOM_TO_TARGET = {
     "guest_room": "bedroom",
     "kids_room": "bedroom",
