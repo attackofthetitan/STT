@@ -140,7 +140,7 @@ SWITCH_DEV_EN = {
 
 DEVICE_VARIANTS_EN = {
     "light": ["light", "lights", "lamp", "lamps", "lighting", "LEDs", "strip lights", "ceiling light", "reading lamp", "spotlight", "chandelier", "downlight"],
-    "ac": ["AC", "air conditioner", "A/C", "cooling unit", "air con", "thermostat", "climate control", "heating unit"],
+    "ac": ["AC", "air conditioner", "A/C", "cooling unit", "air con", "thermostat", "climate control"],
     "tv": ["TV", "television", "telly", "screen", "display", "monitor", "smart TV"],
     "vacuum": ["vacuum", "robot vacuum", "roomba", "sweeper", "bot", "cleaner", "mopping robot"],
     "curtain": ["curtain", "drapes", "shades", "blinds", "shutters", "blackout curtains", "roller shades"],
@@ -343,18 +343,27 @@ def gen_switches() -> Example:
     onoff = random.choice(["on", "off"])
     action = "turn_on" if onoff == "on" else "turn_off"
 
+    is_heavy_appliance = dev in ["washer", "dryer", "oven", "dishwasher"]
+    
     if lang == "zh":
-        verbs = ["打開", "開一下", "開啟"] if onoff == "on" else ["關掉", "關一下", "關閉"]
+        if is_heavy_appliance and onoff == "off":
+             verbs = ["停止", "停掉", "關掉"]
+        else:
+            verbs = ["打開", "開一下", "開啟"] if onoff == "on" else ["關掉", "關一下", "關閉"]
+        
         verb = random.choice(verbs)
         prefix = random.choice(PREFIXES_ZH) if random.random() < 0.4 else ""
-        
         structure = random.choice([
             f"{prefix}幫我把{room_word}{dev_word}{verb}",
             f"{prefix}{room_word}{dev_word}{verb}",
             f"{dev_word}在{room_word}{verb}"
         ])
     else:
-        verbs = ["turn on", "switch on", "start"] if onoff == "on" else ["turn off", "switch off", "stop"]
+        if is_heavy_appliance and onoff == "off":
+             verbs = ["stop", "halt", "turn off"]
+        else:
+            verbs = ["turn on", "switch on", "start"] if onoff == "on" else ["turn off", "switch off", "stop"]
+            
         verb = random.choice(verbs)
         prefix = random.choice(PREFIXES_EN) if random.random() < 0.4 else ""
         
@@ -418,7 +427,7 @@ def gen_climate() -> Example:
         has_room = room_word in structure
         phr = inject_noise(structure, lang)
         final_target = norm_target if has_room else "default"
-        return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="set"), phr, 0.86)
+        return emit_command("climate", "set_temperature", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="setpoint"), phr, 0.86)
 
     if style == "mode":
         mode = random.choice(["cool", "heat", "dry", "fan_only"])
@@ -430,7 +439,8 @@ def gen_climate() -> Example:
         
         final_target = norm_target if room_word in phr else "default"
         phr = inject_noise(phr, lang)
-        return emit_command("climate", "set", final_target, None, make_slots(device="ac", mode=mode), phr, 0.82)
+        # Changed action from "set" to "set_mode"
+        return emit_command("climate", "set_mode", final_target, None, make_slots(device="ac", mode=mode), phr, 0.82)
 
     if style == "delta":
         delta = random.randint(1, 5)
@@ -558,7 +568,7 @@ def gen_covers() -> Example:
             phr = f"set {room_word} {dev_word} to {pos} percent"
         
         phr = inject_noise(phr, lang)
-        return emit_command("covers", "set", norm_target, None, make_slots(device="curtain", mode="position", value=pos, unit="percent"), phr, 0.84)
+        return emit_command("covers", "set_position", norm_target, None, make_slots(device="curtain", mode="position", value=pos, unit="percent"), phr, 0.84)
 
     phr = random.choice(["太亮了", "陽光好大", "Make it darker", "Too bright in here"])
     phr = inject_noise(phr, lang)
