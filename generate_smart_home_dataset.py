@@ -384,7 +384,7 @@ def gen_climate() -> Example:
         has_room = room_word in structure
         phr = inject_noise(structure, lang)
         final_target = norm_target if has_room else "default"
-        return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="setpoint"), phr, 0.86)
+        return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="set"), phr, 0.86)
 
     if style == "mode":
         mode = random.choice(["cool", "heat", "dry", "fan_only"])
@@ -767,7 +767,7 @@ LOGIC & NORMALIZATION
 
 DEVICE NORMALIZATION
 - Climate: "cooling unit", "heating unit", "A/C", "air conditioner", "air con", "climate control" → device="ac"
-- Climate setpoint: Use device="thermostat" for temperature setting commands
+- Climate set: Use device="thermostat" for temperature setting commands
 - Covers: "shades", "blinds", "drapes", "shutters" → device="curtain"
 - Vacuum: "roomba", "sweeper", "bot", "cleaner" → device="robot_vacuum"  
 - Media: "music", "audio" for playback controls
@@ -803,7 +803,7 @@ SCHEMA DEFINITION
     "value": "string",       // Original value from user (e.g., "5" for "5 minutes", "25" for "25 degrees")
     "value_num": number,     // Numeric version of value
     "unit": "string",        // e.g., "minutes", "seconds", "celsius", "percent"
-    "mode": "string",        // e.g., "cool", "heat", "setpoint", "source", "room", "state", "cancel", "remaining"
+    "mode": "string",        // e.g., "cool", "heat", "set", "source", "room", "state", "cancel", "remaining"
     "scene": "string"        // e.g., "movie", "sleep", "away", "relax", "dinner", "work"
   },
   "raw_text": "string",
@@ -819,7 +819,7 @@ EXAMPLES
 - "門鎖是不是該換了" (asking for opinion) → type="transcript"
 - "skip song" → domain="media", action="next"
 - "go back" → domain="media", action="previous"
-- "頂樓舊空調調到28度" → domain="climate", device="thermostat", value="28", unit="celsius", mode="setpoint", target="default"
+- "頂樓舊空調調到28度" → domain="climate", device="thermostat", value="28", unit="celsius", mode="set", target="default"
 - "工作區嵌燈關掉" → domain="lights", target="study"
 - "除濕機在走道開啟" → domain="switches", device="dehumidifier", target="hallway"
 """
