@@ -106,7 +106,7 @@ SWITCH_DEV_EN = {
 
 DEVICE_VARIANTS_EN = {
     "light": ["light", "lights", "lamp", "lamps", "lighting", "LEDs", "strip lights", "ceiling light", "reading lamp", "spotlight", "chandelier", "downlight"],
-    "ac": ["AC", "air conditioner", "A/C", "cooling unit", "air con", "thermostat", "climate control"],
+    "ac": ["AC", "air conditioner", "A/C", "cooling unit", "air con", "thermostat", "climate control", "heating unit"],
     "tv": ["TV", "television", "telly", "screen", "display", "monitor", "smart TV"],
     "vacuum": ["vacuum", "robot vacuum", "roomba", "sweeper", "bot", "cleaner", "mopping robot"],
     "curtain": ["curtain", "drapes", "shades", "blinds", "shutters", "blackout curtains", "roller shades"],
@@ -182,7 +182,7 @@ def _value_to_num(v):
     except Exception:
         return None
 
-def make_slots(device=None, value=None, unit=None, mode=None, scene=None, duration_sec=None) -> Dict[str, Any]:
+def make_slots(device=None, value=None, unit=None, mode=None, scene=None) -> Dict[str, Any]:
     return {
         "device": device,
         "value": _value_to_str(value),
@@ -190,7 +190,6 @@ def make_slots(device=None, value=None, unit=None, mode=None, scene=None, durati
         "unit": unit,
         "mode": mode,
         "scene": scene,
-        "duration_sec": duration_sec,
     }
 
 @dataclass
@@ -347,32 +346,44 @@ def gen_climate() -> Example:
         action = "turn_on" if onoff == "on" else "turn_off"
         if lang == "zh":
             v = "打開" if onoff == "on" else "關掉"
-            phr = f"{room_word}{dev_word}{v}" if random.random() < 0.6 else f"把{dev_word}{v}"
+            structure = random.choice([
+                f"{room_word}{dev_word}{v}",
+                f"把{dev_word}{v}",
+                f"{room_word}的{dev_word}{v}",
+            ])
         else:
             v = "turn on" if onoff == "on" else "turn off"
-            phr = f"{v} the {room_word} {dev_word}" if random.random() < 0.6 else f"{v} the {dev_word}"
+            structure = random.choice([
+                f"{v} the {room_word} {dev_word}",
+                f"{v} the {dev_word}",
+                f"{v} the {dev_word} in the {room_word}",
+            ])
         
-        final_target = norm_target if room_word in phr else "default"
-        phr = inject_noise(phr, lang)
+        has_room = room_word in structure
+        phr = inject_noise(structure, lang)
+        final_target = norm_target if has_room else "default"
         return emit_command("climate", action, final_target, onoff, make_slots(device="ac"), phr, 0.90)
 
     if style == "set":
         temp = random.randint(16, 30)
         if lang == "zh":
-            phr = random.choice([
+            structure = random.choice([
                 f"{room_word}{dev_word}調到{temp}度", 
                 f"溫度設為{temp}",
-                f"幫我把{room_word}氣溫設在{temp}"
+                f"幫我把{room_word}氣溫設在{temp}",
+                f"{dev_word}調到{temp}度",
             ])
         else:
-            phr = random.choice([
+            structure = random.choice([
                 f"set {room_word} {dev_word} to {temp} degrees", 
                 f"make it {temp} degrees in the {room_word}",
-                f"change temp to {temp}"
+                f"change temp to {temp}",
+                f"set {dev_word} to {temp}",
             ])
         
-        final_target = norm_target if room_word in phr else "default"
-        phr = inject_noise(phr, lang)
+        has_room = room_word in structure
+        phr = inject_noise(structure, lang)
+        final_target = norm_target if has_room else "default"
         return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="setpoint"), phr, 0.86)
 
     if style == "mode":
@@ -582,13 +593,10 @@ def gen_timer() -> Example:
         val = random.randint(1, 120)
         is_sec = random.random() < 0.2
         
-        # Always store in seconds, keep original unit for reference
         if is_sec:
-            duration_sec = val
             unit = "seconds"
             u_str = "秒" if lang == "zh" else "seconds"
         else:
-            duration_sec = val * 60
             unit = "minutes"
             u_str = "分鐘" if lang == "zh" else "minutes"
         
@@ -601,9 +609,8 @@ def gen_timer() -> Example:
         phr = inject_noise(phr, lang)
         final_target = norm_target if has_room else "default"
         
-        # Provide value (original), unit (original), and duration_sec (always in seconds)
         return emit_command("timer", "set", final_target, None, 
-            make_slots(device="timer", value=val, unit=unit, duration_sec=duration_sec), 
+            make_slots(device="timer", value=val, unit=unit), 
             phr, 0.90)
 
     if style == "cancel":
@@ -659,13 +666,13 @@ def gen_transcript() -> Example:
         "幫我訂披薩", "Order a pizza", "I want to buy a new vacuum",
         "我想買一台掃地機", "Buy me a new TV", "幫我網購一台冷氣",
         "電視壞掉了怎麼辦", "冷氣好像有點怪怪的", "門鎖是不是該換了",
-        "窗簾好漂亮", "掃地機卡住了", "The vacuum is stuck"
+        "窗簾好漂亮", "掃地機卡住了", "The vacuum is stuck",
+        "那個...應...", "呃...嗯...", "就是說...",
     ]
     t = random.choice(texts)
     lang = "zh" if any(ord(c) > 128 for c in t) else "en"
-    t = inject_noise(t, lang)
+    t = inject_noise(t, lang, prob=0.30)
     
-    # Inverted logic: greetings get higher base confidence
     if "Hello" in t or "哈哈" in t:
         base = 0.20
     else:
@@ -739,6 +746,83 @@ def main():
         for ex in data:
             f.write(json.dumps(asdict(ex), ensure_ascii=False) + "\n")
     print(f"Wrote {args.n} examples to {args.out}")
+
+SYSTEM_PROMPT = """You are a smart home command extraction engine. Analyze the user's natural language input and return EXACTLY ONE JSON object.
+
+OUTPUT RULES
+- JSON only. No markdown, no conversational text. First char "{", last "}".
+- If the input is NOT a smart home command (chat, greetings, questions about non-commands), set "type": "transcript" and "domain": "unknown".
+- Use "null" for missing values.
+- Double quotes for strings.
+- raw_text = original user sentence.
+
+LOGIC & NORMALIZATION
+- Room Normalization: Map all room mentions to ["bathroom", "kitchen", "bedroom", "living_room", "dining_room", "study", "balcony", "hallway", "entryway", "default"].
+  - "office", "workspace" → "study"
+  - "corridor" → "hallway"  
+  - "foyer" → "entryway"
+- Default Target: If NO room is mentioned, set "target": "default".
+- Implicit Intent: Phrases like "too dark" or "too hot" should be interpreted as commands (lights/climate) with lower confidence (~0.6).
+- Questions about device state (e.g., "is door locked?", "門鎖是不是該換了") are transcripts if asking for advice/opinion, but queries if asking for current status.
+
+DEVICE NORMALIZATION
+- Climate: "cooling unit", "heating unit", "A/C", "air conditioner", "air con", "climate control" → device="ac"
+- Climate setpoint: Use device="thermostat" for temperature setting commands
+- Covers: "shades", "blinds", "drapes", "shutters" → device="curtain"
+- Vacuum: "roomba", "sweeper", "bot", "cleaner" → device="robot_vacuum"  
+- Media: "music", "audio" for playback controls
+- Locks: "front_door", "door" → device="front_door"
+- Chinese device mapping:
+  - "除濕機" → device="dehumidifier" (NOT dryer)
+  - "烘衣機" → device="dryer"
+  - "嵌燈" → device="light"
+  - "工作區", "辦公室" → target="study"
+
+DOMAIN CLASSIFICATION
+- domain="climate": AC, thermostat, cooling unit, heating unit, climate control, temperature commands
+- domain="switches": fan, humidifier, plug, heater, coffee_maker, rice_cooker, kettle, water_heater, washer, dryer, oven, air_purifier, dehumidifier
+- domain="lights": All lighting devices
+- domain="media": TV, speaker, soundbar, music playback controls
+- domain="covers": Curtains, blinds, shades, shutters
+- domain="locks": Door locks
+- domain="vacuum": Robot vacuum, cleaning commands
+- domain="timer": Timer setting, canceling, querying
+- domain="scene": Scene activation (movie, sleep, away, relax, dinner, work)
+- domain="query": Status queries about devices or environment
+- domain="unknown": For transcripts only
+
+SCHEMA DEFINITION
+{
+  "type": "command" | "transcript",
+  "domain": "lights" | "switches" | "climate" | "media" | "covers" | "locks" | "vacuum" | "timer" | "scene" | "query" | "unknown",
+  "action": "turn_on" | "turn_off" | "set" | "open" | "close" | "lock" | "unlock" | "start" | "stop" | "increase" | "decrease" | "query" | "pause" | "resume" | "next" | "previous" | "dock" | "none",
+  "target": "bathroom" | "kitchen" | "bedroom" | "living_room" | "dining_room" | "study" | "balcony" | "hallway" | "entryway" | "default" | null,
+  "state": "on" | "off" | null,
+  "slots": {
+    "device": "string",      // e.g., "light", "ac", "thermostat", "tv", "curtain", "timer", "robot_vacuum", "front_door"
+    "value": "string",       // Original value from user (e.g., "5" for "5 minutes", "25" for "25 degrees")
+    "value_num": number,     // Numeric version of value
+    "unit": "string",        // e.g., "minutes", "seconds", "celsius", "percent"
+    "mode": "string",        // e.g., "cool", "heat", "setpoint", "source", "room", "state", "cancel", "remaining"
+    "scene": "string"        // e.g., "movie", "sleep", "away", "relax", "dinner", "work"
+  },
+  "raw_text": "string",
+  "confidence": number       // 0.0 to 1.0
+}
+
+EXAMPLES
+- "turn on the living room cooling unit" → domain="climate", device="ac", target="living_room"
+- "close the corridor shades" → domain="covers", device="curtain", target="hallway"
+- "clean the office the roomba" → domain="vacuum", target="study", value="study"
+- "set a timer for 81 minutes" → domain="timer", value="81", unit="minutes" (NO duration_sec)
+- "那個...應... 哈哈哈" → type="transcript", domain="unknown"
+- "門鎖是不是該換了" (asking for opinion) → type="transcript"
+- "skip song" → domain="media", action="next"
+- "go back" → domain="media", action="previous"
+- "頂樓舊空調調到28度" → domain="climate", device="thermostat", value="28", unit="celsius", mode="setpoint", target="default"
+- "工作區嵌燈關掉" → domain="lights", target="study"
+- "除濕機在走道開啟" → domain="switches", device="dehumidifier", target="hallway"
+"""
 
 if __name__ == "__main__":
     main()
