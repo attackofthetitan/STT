@@ -150,7 +150,7 @@ DEVICE_VARIANTS_EN = {
 
 DEVICE_VARIANTS_ZH = {
     "light": ["燈", "電燈", "照明", "光", "檯燈", "吊燈", "吸頂燈", "落地燈", "壁燈", "LED燈", "嵌燈"],
-    "ac": ["冷氣", "空調", "冷氣機", "暖氣", "恆溫器"],
+    "ac": ["冷氣", "空調", "冷氣機", "恆溫器"],
     "tv": ["電視", "電視機", "螢幕", "顯示器"],
     "vacuum": ["掃地機", "吸塵器", "機器人", "掃地機器人", "拖地機", "掃拖機"],
     "curtain": ["窗簾", "布簾", "百葉窗", "捲簾", "遮光簾", "紗簾"],
@@ -418,7 +418,7 @@ def gen_climate() -> Example:
         has_room = room_word in structure
         phr = inject_noise(structure, lang)
         final_target = norm_target if has_room else "default"
-        return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="setpoint"), phr, 0.86)
+        return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="set"), phr, 0.86)
 
     if style == "mode":
         mode = random.choice(["cool", "heat", "dry", "fan_only"])
@@ -801,7 +801,7 @@ def main():
     args = p.parse_args()
 
     if args.print_system_prompt:
-        print(SYSTEM_PROMPT)
+        print(SYSTEM)
         return
 
     data = generate(args.n, args.transcript_ratio)
@@ -810,26 +810,8 @@ def main():
             f.write(json.dumps(asdict(ex), ensure_ascii=False) + "\n")
     print(f"Wrote {args.n} examples to {args.out}")
 
-SYSTEM_PROMPT = """Extract smart home command as JSON. Return ONLY valid JSON, no markdown.
-
-SCHEMA:
-{
-  "type": "command" | "transcript",
-  "domain": "lights" | "switches" | "climate" | "media" | "covers" | "locks" | "vacuum" | "timer" | "scene" | "query" | "unknown",
-  "action": "turn_on" | "turn_off" | "set" | "open" | "close" | "lock" | "unlock" | "start" | "stop" | "pause" | "resume" | "next" | "previous" | "dock" | "increase" | "decrease" | "query" | "none",
-  "target": "bathroom" | "kitchen" | "bedroom" | "living_room" | "dining_room" | "study" | "balcony" | "hallway" | "entryway" | "default" | null,
-  "state": "on" | "off" | null,
-  "slots": {
-    "device": string | null,
-    "value": string | null,
-    "value_num": number | null,
-    "unit": string | null,
-    "mode": string | null,
-    "scene": string | null
-  },
-  "raw_text": string,
-  "confidence": number
-}
+SYSTEM = """You are a smart home intent parser. Convert the user request into a JSON command.
+Output one JSON only with no markdown, no conversational text, and no extra characters.
 """
 
 
