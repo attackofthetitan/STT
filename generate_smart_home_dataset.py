@@ -104,6 +104,40 @@ SWITCH_DEV_EN = {
     "oven": ["oven"],
 }
 
+SWITCH_DEV_ZH = {
+    "fan": ["風扇", "電扇", "循環扇"],
+    "humidifier": ["加濕器", "水氧機"],
+    "diffuser": ["香氛機", "擴香"],
+    "plug": ["插座", "插頭", "電源"],
+    "air_purifier": ["空氣清淨機", "清淨機"],
+    "dehumidifier": ["除濕機"],
+    "heater": ["暖氣", "暖爐", "電暖器"],
+    "coffee_maker": ["咖啡機"],
+    "rice_cooker": ["電鍋", "電子鍋"],
+    "kettle": ["熱水壺", "快煮壺"],
+    "water_heater": ["熱水器"],
+    "washer": ["洗衣機"],
+    "dryer": ["烘衣機"],
+    "oven": ["烤箱"],
+}
+
+SWITCH_DEV_EN = {
+    "fan": ["fan", "ceiling fan", "desk fan", "ventilator"],
+    "humidifier": ["humidifier"],
+    "diffuser": ["diffuser", "aroma diffuser"],
+    "plug": ["plug", "socket", "outlet", "smart plug"],
+    "air_purifier": ["air purifier", "purifier"],
+    "dehumidifier": ["dehumidifier"],
+    "heater": ["heater", "radiator", "space heater"],
+    "coffee_maker": ["coffee maker", "coffee machine"],
+    "rice_cooker": ["rice cooker"],
+    "kettle": ["kettle", "electric kettle"],
+    "water_heater": ["water heater", "boiler"],
+    "washer": ["washer", "washing machine"],
+    "dryer": ["dryer", "clothes dryer"],
+    "oven": ["oven"],
+}
+
 DEVICE_VARIANTS_EN = {
     "light": ["light", "lights", "lamp", "lamps", "lighting", "LEDs", "strip lights", "ceiling light", "reading lamp", "spotlight", "chandelier", "downlight"],
     "ac": ["AC", "air conditioner", "A/C", "cooling unit", "air con", "thermostat", "climate control", "heating unit"],
@@ -384,7 +418,7 @@ def gen_climate() -> Example:
         has_room = room_word in structure
         phr = inject_noise(structure, lang)
         final_target = norm_target if has_room else "default"
-        return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="set"), phr, 0.86)
+        return emit_command("climate", "set", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="setpoint"), phr, 0.86)
 
     if style == "mode":
         mode = random.choice(["cool", "heat", "dry", "fan_only"])
@@ -644,7 +678,14 @@ def gen_query() -> Example:
     qtype = random.choice(["light_state", "temp", "lock_state", "vacuum_state"])
 
     if qtype == "light_state":
-        phr = f"{room_word}燈有開嗎" if lang == "zh" else f"is the {room_word} light on"
+        if lang == "zh":
+            phr = f"{room_word}燈有開嗎"
+        else:
+            phr = random.choice([
+                f"is the {room_word} light on",
+                f"are the {room_word} lights on",
+                f"is the light on in the {room_word}",
+            ])
         return emit_command("query", "query", norm_target, None, make_slots(device="light", mode="state"), inject_noise(phr, lang), 0.86)
     
     if qtype == "temp":
@@ -655,7 +696,14 @@ def gen_query() -> Example:
         phr = "門有鎖嗎" if lang == "zh" else "is the door locked"
         return emit_command("query", "query", "default", None, make_slots(device="lock", mode="state"), inject_noise(phr, lang), 0.82)
 
-    phr = "掃地機在哪" if lang == "zh" else "where is the vacuum"
+    if lang == "zh":
+        phr = "掃地機在哪"
+    else:
+        phr = random.choice([
+            "where is the vacuum",
+            "where's the robot vacuum",
+            "where is the roomba",
+        ])
     return emit_command("query", "query", "default", None, make_slots(device="vacuum", mode="location"), inject_noise(phr, lang), 0.78)
 
 def gen_transcript() -> Example:
@@ -669,6 +717,16 @@ def gen_transcript() -> Example:
         "窗簾好漂亮", "掃地機卡住了", "The vacuum is stuck",
         "那個...應...", "呃...嗯...", "就是說...",
     ]
+    
+    # 40% chance of generating filler-only text
+    if random.random() < 0.4:
+        lang = "zh" if random.random() < 0.5 else "en"
+        fillers = FILLERS_ZH if lang == "zh" else FILLERS_EN
+        # Generate 1-3 repetitions of fillers
+        n_fillers = random.randint(1, 3)
+        filler_text = " ".join([random.choice(fillers) + "..." for _ in range(n_fillers)])
+        return emit_transcript(filler_text.strip(), 0.25)
+    
     t = random.choice(texts)
     lang = "zh" if any(ord(c) > 128 for c in t) else "en"
     t = inject_noise(t, lang, prob=0.30)
@@ -739,7 +797,12 @@ def main():
     p.add_argument("--out", default="smart_home_multidomain.jsonl")
     p.add_argument("--n", type=int, default=5000)
     p.add_argument("--transcript_ratio", type=float, default=0.30)
+    p.add_argument("--print_system_prompt", action="store_true", help="Print recommended system prompt")
     args = p.parse_args()
+
+    if args.print_system_prompt:
+        print(SYSTEM_PROMPT)
+        return
 
     data = generate(args.n, args.transcript_ratio)
     with open(args.out, "w", encoding="utf-8") as f:
@@ -747,82 +810,28 @@ def main():
             f.write(json.dumps(asdict(ex), ensure_ascii=False) + "\n")
     print(f"Wrote {args.n} examples to {args.out}")
 
-SYSTEM_PROMPT = """You are a smart home command extraction engine. Analyze the user's natural language input and return EXACTLY ONE JSON object.
+SYSTEM_PROMPT = """Extract smart home command as JSON. Return ONLY valid JSON, no markdown.
 
-OUTPUT RULES
-- JSON only. No markdown, no conversational text. First char "{", last "}".
-- If the input is NOT a smart home command (chat, greetings, questions about non-commands), set "type": "transcript" and "domain": "unknown".
-- Use "null" for missing values.
-- Double quotes for strings.
-- raw_text = original user sentence.
-
-LOGIC & NORMALIZATION
-- Room Normalization: Map all room mentions to ["bathroom", "kitchen", "bedroom", "living_room", "dining_room", "study", "balcony", "hallway", "entryway", "default"].
-  - "office", "workspace" → "study"
-  - "corridor" → "hallway"  
-  - "foyer" → "entryway"
-- Default Target: If NO room is mentioned, set "target": "default".
-- Implicit Intent: Phrases like "too dark" or "too hot" should be interpreted as commands (lights/climate) with lower confidence (~0.6).
-- Questions about device state (e.g., "is door locked?", "門鎖是不是該換了") are transcripts if asking for advice/opinion, but queries if asking for current status.
-
-DEVICE NORMALIZATION
-- Climate: "cooling unit", "heating unit", "A/C", "air conditioner", "air con", "climate control" → device="ac"
-- Climate set: Use device="thermostat" for temperature setting commands
-- Covers: "shades", "blinds", "drapes", "shutters" → device="curtain"
-- Vacuum: "roomba", "sweeper", "bot", "cleaner" → device="robot_vacuum"  
-- Media: "music", "audio" for playback controls
-- Locks: "front_door", "door" → device="front_door"
-- Chinese device mapping:
-  - "除濕機" → device="dehumidifier" (NOT dryer)
-  - "烘衣機" → device="dryer"
-  - "嵌燈" → device="light"
-  - "工作區", "辦公室" → target="study"
-
-DOMAIN CLASSIFICATION
-- domain="climate": AC, thermostat, cooling unit, heating unit, climate control, temperature commands
-- domain="switches": fan, humidifier, plug, heater, coffee_maker, rice_cooker, kettle, water_heater, washer, dryer, oven, air_purifier, dehumidifier
-- domain="lights": All lighting devices
-- domain="media": TV, speaker, soundbar, music playback controls
-- domain="covers": Curtains, blinds, shades, shutters
-- domain="locks": Door locks
-- domain="vacuum": Robot vacuum, cleaning commands
-- domain="timer": Timer setting, canceling, querying
-- domain="scene": Scene activation (movie, sleep, away, relax, dinner, work)
-- domain="query": Status queries about devices or environment
-- domain="unknown": For transcripts only
-
-SCHEMA DEFINITION
+SCHEMA:
 {
   "type": "command" | "transcript",
   "domain": "lights" | "switches" | "climate" | "media" | "covers" | "locks" | "vacuum" | "timer" | "scene" | "query" | "unknown",
-  "action": "turn_on" | "turn_off" | "set" | "open" | "close" | "lock" | "unlock" | "start" | "stop" | "increase" | "decrease" | "query" | "pause" | "resume" | "next" | "previous" | "dock" | "none",
+  "action": "turn_on" | "turn_off" | "set" | "open" | "close" | "lock" | "unlock" | "start" | "stop" | "pause" | "resume" | "next" | "previous" | "dock" | "increase" | "decrease" | "query" | "none",
   "target": "bathroom" | "kitchen" | "bedroom" | "living_room" | "dining_room" | "study" | "balcony" | "hallway" | "entryway" | "default" | null,
   "state": "on" | "off" | null,
   "slots": {
-    "device": "string",      // e.g., "light", "ac", "thermostat", "tv", "curtain", "timer", "robot_vacuum", "front_door"
-    "value": "string",       // Original value from user (e.g., "5" for "5 minutes", "25" for "25 degrees")
-    "value_num": number,     // Numeric version of value
-    "unit": "string",        // e.g., "minutes", "seconds", "celsius", "percent"
-    "mode": "string",        // e.g., "cool", "heat", "set", "source", "room", "state", "cancel", "remaining"
-    "scene": "string"        // e.g., "movie", "sleep", "away", "relax", "dinner", "work"
+    "device": string | null,
+    "value": string | null,
+    "value_num": number | null,
+    "unit": string | null,
+    "mode": string | null,
+    "scene": string | null
   },
-  "raw_text": "string",
-  "confidence": number       // 0.0 to 1.0
+  "raw_text": string,
+  "confidence": number
 }
-
-EXAMPLES
-- "turn on the living room cooling unit" → domain="climate", device="ac", target="living_room"
-- "close the corridor shades" → domain="covers", device="curtain", target="hallway"
-- "clean the office the roomba" → domain="vacuum", target="study", value="study"
-- "set a timer for 81 minutes" → domain="timer", value="81", unit="minutes" (NO duration_sec)
-- "那個...應... 哈哈哈" → type="transcript", domain="unknown"
-- "門鎖是不是該換了" (asking for opinion) → type="transcript"
-- "skip song" → domain="media", action="next"
-- "go back" → domain="media", action="previous"
-- "頂樓舊空調調到28度" → domain="climate", device="thermostat", value="28", unit="celsius", mode="set", target="default"
-- "工作區嵌燈關掉" → domain="lights", target="study"
-- "除濕機在走道開啟" → domain="switches", device="dehumidifier", target="hallway"
 """
+
 
 if __name__ == "__main__":
     main()
