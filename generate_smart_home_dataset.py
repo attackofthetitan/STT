@@ -802,14 +802,53 @@ def mutate_example(ex: Example, attempts: int) -> Example:
     
     return ex
 
+def gen_transcript() -> Example:
+    lang = "zh" if random.random() < 0.5 else "en"
+    if lang == "zh":
+        texts = [
+            "你好嗎", "今天天氣真好", "你覺得這件衣服好看嗎", "我等等要出門",
+            "告訴我一個笑話", "背誦一首唐詩", "生命的意義是什麼", "現在幾點了",
+            "這太好笑了", "哎呀", "那個...我忘記了", "隨便啦",
+            "明天會下雨嗎", "幫我搜尋一下附近的餐廳", "打電話給媽媽",
+            "我想聽鬼故事", "肚子好餓喔", "這附近的房價多少",
+            "最近有什麼好看的電影", "我要去睡覺了晚安", "真是夠了",
+            "哈囉", "有人在嗎", "測試測試", "一二三",
+            "只要你開心就好", "我不同意你的看法", "這是不可能的",
+            "我想買一台新車", "股市今天跌了", "比特幣現在多少錢"
+        ]
+        if random.random() < 0.2:
+            texts.extend(["那個...", "呃...就是那個...", "我想...", "不是，我是說..."])
+    else:
+        texts = [
+            "Hello there", "How are you doing", "What is the meaning of life",
+            "Tell me a joke", "Sing a song for me", "I am going out later",
+            "Did you see that game last night", "That is hilarious", "Oh my god",
+            "Never mind", "I forgot what I was saying", "Whatever",
+            "Will it rain tomorrow", "Search for restaurants nearby", "Call Mom",
+            "I'm so hungry", "What is the stock price of Apple",
+            "Is there any good movie recently", "Goodnight", "That's enough",
+            "Testing one two three", "Anyone there", "Hey",
+            "I want to buy a new car", "I don't agree with you", "That's impossible",
+            "What time is it", "How tall is Mount Everest", "Who is the president"
+        ]
+        if random.random() < 0.2:
+            texts.extend(["Um...", "Uh, I mean...", "Actually...", "Wait, no..."])
+
+    text = random.choice(texts)
+    
+    phr = humanize_text(text, lang, noise_prob=0.0)
+    
+    return emit_command("unknown", "none", None, None, make_slots(), phr, 0.15)
+
 GENERATORS = [
-    (gen_lights, 0.22),
-    (gen_climate, 0.18),
-    (gen_vacuum, 0.12),
-    (gen_timer, 0.12),
-    (gen_curtain, 0.12),
-    (gen_fan, 0.12),
-    (gen_media, 0.12),
+    (gen_lights, 0.20),
+    (gen_climate, 0.15),
+    (gen_vacuum, 0.10),
+    (gen_timer, 0.10),
+    (gen_curtain, 0.10),
+    (gen_fan, 0.10),
+    (gen_media, 0.10),
+    (gen_transcript, 0.15), 
 ]
 
 def generate(n: int, max_attempts: int = 15) -> List[Example]:
