@@ -671,7 +671,7 @@ def gen_timer() -> Example:
         phr = humanize_text(phr, lang)
         final_target = norm_target if has_room else "default"
         
-        return emit_command("timer", "set", final_target, None, 
+        return emit_command("timer", "set_time", final_target, None, 
             make_slots(device="timer", value=val, unit=unit), 
             phr, 0.90)
 
@@ -698,7 +698,7 @@ def gen_scene() -> Example:
     phr = humanize_text(phr, lang)
     final_target = norm_target if has_room else "default"
 
-    return emit_command("scene", "set", final_target, None, make_slots(device="scene", scene=scene), phr, 0.78)
+    return emit_command("scene", "set_scene", final_target, None, make_slots(device="scene", scene=scene), phr, 0.78)
 
 def gen_query() -> Example:
     base_room = pick_room()
