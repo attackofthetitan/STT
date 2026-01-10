@@ -450,59 +450,44 @@ def gen_climate() -> Example:
         else:
             verb = random.choice(["turn on", "switch on"]) if onoff == "on" else random.choice(["turn off", "switch off"])
             st = f"{verb} the {room_word} {dev_word}"
+            
+        phr = humanize_text(st, lang)
+        final_target = norm_target if room_word in st else "default"
         
-        return emit_command("climate", action, norm_target, onoff, make_slots(device="thermostat"), humanize_text(st, lang), 0.88)
+        return emit_command("climate", action, final_target, onoff, make_slots(device="thermostat"), phr, 0.88)
 
 def gen_vacuum() -> Example:
-    base_room = pick_room(weight_default=0.0)
+    base_room = pick_room(weight_default=0.0) 
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
     dev_word = get_granular_device("vacuum", lang)
-    act = random.choice(["start", "start", "stop", "dock", "set", "pause"])
-
-    if lang == "zh":
-        v_map = {
-            "start": ["開始掃地", "啟動", "開始工作", "打掃", "開始清潔", "動起來", "開始掃", "工作", "清掃"],
-            "stop": ["停止", "不要掃了", "停下來", "暫停", "停工", "別掃了", "結束"],
-            "dock": ["回去充電", "回家", "回充", "歸位", "回基地", "去充電", "返回"],
-            "pause": ["暫停", "先停", "休息一下", "停一下"],
-            "set": [f"去掃{room_word}", f"清理{room_word}", f"打掃{room_word}", f"去{room_word}", f"清潔{room_word}"]
-        }
-    else:
-        v_map = {
-            "start": ["start cleaning", "start", "run", "clean up", "begin", "get to work", "go clean"],
-            "stop": ["stop cleaning", "stop", "halt", "end cleaning", "cease", "quit"],
-            "dock": ["dock", "return home", "go charge", "go back", "return", "go to base"],
-            "pause": ["pause", "hold on", "take a break", "pause cleaning"],
-            "set": [f"clean the {room_word}", f"go to {room_word}", f"vacuum the {room_word}", f"clean {room_word}", f"do the {room_word}"]
-        }
     
-    phrases = v_map[act]
+    act_type = random.choice(["generic", "specific"])
     
-    if lang == "zh":
-        structures = [
-            f"{dev_word}{random.choice(phrases)}",
-            f"{random.choice(phrases)}",
-            f"讓{dev_word}{random.choice(phrases)}",
-            f"叫{dev_word}{random.choice(phrases)}",
-        ]
+    if act_type == "specific":
+        act = "set"
+        if lang == "zh":
+            st = f"{dev_word}去打掃{room_word}"
+        else:
+            st = f"{dev_word} go clean the {room_word}"
+        
+        return emit_command("vacuum", "set", norm_target, None, make_slots(device="robot_vacuum", mode="room", value=norm_target),  humanize_text(st, lang), 0.90)
     else:
-        structures = [
-            f"{dev_word} {random.choice(phrases)}",
-            f"{random.choice(phrases)}",
-            f"tell {dev_word} to {random.choice(phrases)}",
-            f"make {dev_word} {random.choice(phrases)}",
-        ]
-
-    st = random.choice(structures)
-
-    slots = make_slots(device="robot_vacuum")
-    if act == "set":
-        slots = make_slots(device="robot_vacuum", mode="room", value=norm_target)
-        target = norm_target
-    else:
-        target = "default"
-
-    return emit_command("vacuum", act, target, None, slots, humanize_text(st, lang), 0.84)
+        act = random.choice(["start", "stop", "dock", "pause"])
+        if lang == "zh":
+            v_map = {
+                "start": ["開始掃地", "啟動"], "stop": ["停止", "停"], 
+                "dock": ["回去充電", "回家"], "pause": ["暫停", "等一下"]
+            }
+        else:
+            v_map = {
+                "start": ["start cleaning", "start"], "stop": ["stop", "halt"],
+                "dock": ["dock", "return home"], "pause": ["pause", "hold on"]
+            }
+            
+        st = f"{dev_word} {random.choice(v_map[act])}" if lang == "en" else f"{dev_word}{random.choice(v_map[act])}"
+        phr = humanize_text(st, lang)
+        
+        return emit_command("vacuum", act, "default", None,  make_slots(device="robot_vacuum"), phr, 0.85)
 
 def gen_timer() -> Example:
     lang = "zh" if random.random() < 0.5 else "en"
@@ -702,7 +687,9 @@ def gen_media() -> Example:
                 ]
         
         phr = humanize_text(random.choice(structures), lang)
-        return emit_command("media", "set_volume", norm_target, None,make_slots(device=media_type, value=vol, mode="volume"), phr, 0.85)
+        final_target = norm_target if room_word in phr else "default"
+        
+        return emit_command("media", "set_volume", final_target, None, make_slots(device=media_type, value=vol, mode="volume"), phr, 0.85)
     
     elif action_type == "onoff":
         onoff = random.choice(["on", "off"])
@@ -714,7 +701,11 @@ def gen_media() -> Example:
             verb = random.choice(["turn on"]) if onoff == "on" else random.choice(["turn off"])
             st = f"{verb} {dev_word}"
         
-        return emit_command("media", action, norm_target, onoff, make_slots(device=media_type), humanize_text(st, lang), 0.88)
+        phr = humanize_text(st, lang)
+        final_target = norm_target if room_word in phr else "default"
+
+        return emit_command("media", action, final_target, onoff,
+                           make_slots(device=media_type), phr, 0.88)
     
     else:
         if lang == "zh":
@@ -733,7 +724,9 @@ def gen_media() -> Example:
         phrases, action = random.choice(options)
         phr = humanize_text(random.choice(phrases), lang)
         
-        return emit_command("media", action, norm_target, None, make_slots(device=media_type), phr, 0.84)
+        final_target = norm_target if room_word in phr else "default"
+        
+        return emit_command("media", action, final_target, None, make_slots(device=media_type), phr, 0.84)
 
 def compute_text_hash(text: str) -> str:
     normalized = text.lower().strip()
@@ -810,7 +803,7 @@ def gen_transcript() -> Example:
     
     phr = humanize_text(text, lang, noise_prob=0.0)
     
-    return emit_command("unknown", "none", None, None, make_slots(), phr, 0.15)
+    return emit_command("transcript", "none", None, None, make_slots(), phr, 0.15)
 
 GENERATORS = [
     (gen_lights, 0.20),
