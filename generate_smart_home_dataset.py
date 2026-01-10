@@ -735,7 +735,7 @@ def generate(n: int) -> List[Example]:
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--out", default="smart_home_final.jsonl")
+    p.add_argument("--out", default="smart_home_multidomain.jsonl")
     p.add_argument("--n", type=int, default=5000)
     args = p.parse_args()
 
