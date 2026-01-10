@@ -103,7 +103,7 @@ DEVICE_VARIANTS_EN = {
 
 DEVICE_VARIANTS_ZH = {
     "light": ["燈", "電燈", "照明", "光", "檯燈", "吊燈", "吸頂燈", "落地燈", "壁燈", "LED燈", "嵌燈", "燈泡", "日光燈", "夜燈", "探照燈", "筒燈", "射燈", "燈光"],
-    "ac": ["冷氣", "空調", "冷氣機", "恆溫器", "冷風機", "循環扇", "空調系統", "調溫器"],
+    "ac": ["冷氣", "空調", "冷氣機", "恆溫器", "冷風機", "空調系統", "調溫器"], 
     "tv": ["電視", "電視機", "螢幕", "顯示器", "液晶螢幕", "智慧電視", "平板電視"],
     "vacuum": ["掃地機", "吸塵器", "機器人", "掃地機器人", "拖地機", "掃拖機", "打掃機器人", "清潔機器人"],
     "curtain": ["窗簾", "布簾", "百葉窗", "捲簾", "遮光簾", "紗簾", "羅馬簾", "遮陽簾"],
@@ -437,9 +437,11 @@ def gen_climate() -> Example:
                 f"{alt_dir} {room_word} temperature {abs(delta)} degrees",
                 f"turn {alt_dir} the {room_word} AC by {abs(delta)}"
             ]
+        st = random.choice(structures)
+        phr = humanize_text(st, lang)
+        final_target = norm_target if room_word in st else "default"
         
-        phr = humanize_text(random.choice(structures), lang)
-        return emit_command("climate", "adjust_temperature", norm_target, None, make_slots(device="thermostat", value=delta, unit="celsius", mode="relative"), phr, 0.84)
+        return emit_command("climate", "adjust_temperature", final_target, None, make_slots(device="thermostat", value=delta, unit="celsius", mode="relative"), phr, 0.84)
     
     else:
         onoff = random.choice(["on", "off"])
@@ -661,7 +663,12 @@ def gen_media() -> Example:
     media_type = random.choice(["tv", "speaker"])
     dev_word = get_granular_device(media_type, lang)
     
+    if random.random() < 0.20:
+        dev_word = "它" if lang == "zh" else "it"
+    
     action_type = random.choice(["onoff", "volume", "playback", "channel"])
+    
+    slots = make_slots(device=media_type) 
     
     if action_type == "volume":
         vol = random.choice([10, 20, 30, 40, 50, 60, 70, 80, "up", "down"])
@@ -669,28 +676,45 @@ def gen_media() -> Example:
             if isinstance(vol, int):
                 v_str = to_zh_count(vol) if random.random() < 0.3 else str(vol)
                 structures = [
-                    f"{dev_word}音量調到{v_str}", f"音量{v_str}", f"把聲音調成{v_str}"
+                    f"{dev_word}音量調到{v_str}", 
+                    f"音量{v_str}",
+                    f"把聲音調成{v_str}"
                 ]
             else:
                 v_str = "調大" if vol == "up" else "調小"
                 structures = [
-                    f"{dev_word}{v_str}聲音", f"音量{v_str}", f"聲音{'大' if vol == 'up' else '小'}聲一點"
+                    f"{dev_word}{v_str}聲音", 
+                    f"音量{v_str}",
+                    f"聲音{'大' if vol == 'up' else '小'}聲一點"
                 ]
         else:
             if isinstance(vol, int):
                 structures = [
-                    f"set {dev_word} volume to {vol}", f"volume {vol}", f"make {dev_word} volume {vol}"
+                    f"set {dev_word} volume to {vol}", 
+                    f"volume {vol}",
+                    f"make {dev_word} volume {vol}"
                 ]
             else:
                 structures = [
-                    f"turn {dev_word} volume {vol}", f"volume {vol}", f"make it {'louder' if vol == 'up' else 'quieter'}"
+                    f"turn {dev_word} volume {vol}", 
+                    f"volume {vol}",
+                    f"make it {'louder' if vol == 'up' else 'quieter'}"
                 ]
         
-        phr = humanize_text(random.choice(structures), lang)
+        st = random.choice(structures)
+        phr = humanize_text(st, lang)
+        
         final_target = norm_target if room_word in phr else "default"
         
-        return emit_command("media", "set_volume", final_target, None, make_slots(device=media_type, value=vol, mode="volume"), phr, 0.85)
-    
+        real_dev_name = get_granular_device(media_type, lang)
+        if media_type not in phr.lower() and real_dev_name not in phr and dev_word not in phr: 
+             slots["device"] = None
+             
+        slots["value"] = str(vol)
+        slots["mode"] = "volume"
+        
+        return emit_command("media", "set_volume", final_target, None, slots, phr, 0.85)
+
     elif action_type == "onoff":
         onoff = random.choice(["on", "off"])
         action = "turn_on" if onoff == "on" else "turn_off"
@@ -702,31 +726,48 @@ def gen_media() -> Example:
             st = f"{verb} {dev_word}"
         
         phr = humanize_text(st, lang)
+        
         final_target = norm_target if room_word in phr else "default"
-
-        return emit_command("media", action, final_target, onoff,
-                           make_slots(device=media_type), phr, 0.88)
+        
+        return emit_command("media", action, final_target, onoff, make_slots(device=media_type), phr, 0.88)
     
+    elif action_type == "channel":
+        if lang == "zh":
+             structures = [f"換台", f"轉到{random.randint(1,100)}台", f"切換頻道", f"下一台"]
+        else:
+             structures = [f"change channel", f"channel {random.randint(1,100)}", f"next channel"]
+             
+        st = random.choice(structures)
+        phr = humanize_text(st, lang)
+        
+        slots["device"] = "tv"
+        final_target = norm_target if room_word in phr else "default"
+        
+        return emit_command("media", "channel_change", final_target, None, slots, phr, 0.84)
+
     else:
         if lang == "zh":
             options = [
                 (["播放", "繼續", "繼續播放"], "play"),
-                (["暫停", "停", "先停一下"], "pause"),
-                (["換台", "轉到三台", "切換頻道", "下一台"], "channel_change")
+                (["暫停", "停", "先停一下"], "pause")
             ]
         else:
             options = [
                 (["play", "resume", "continue music"], "play"),
-                (["pause", "stop", "hold on"], "pause"),
-                (["change channel", "next channel", "channel up"], "channel_change")
+                (["pause", "stop", "hold on"], "pause")
             ]
             
         phrases, action = random.choice(options)
-        phr = humanize_text(random.choice(phrases), lang)
+        st = random.choice(phrases)
+        phr = humanize_text(st, lang)
         
         final_target = norm_target if room_word in phr else "default"
         
-        return emit_command("media", action, final_target, None, make_slots(device=media_type), phr, 0.84)
+        real_dev_name = get_granular_device(media_type, lang)
+        if media_type not in phr.lower() and real_dev_name not in phr and dev_word not in phr: 
+             slots["device"] = None
+        
+        return emit_command("media", action, final_target, None, slots, phr, 0.84)
 
 def compute_text_hash(text: str) -> str:
     normalized = text.lower().strip()
@@ -777,7 +818,7 @@ def gen_transcript() -> Example:
             "明天會下雨嗎", "幫我搜尋一下附近的餐廳", "打電話給媽媽",
             "我想聽鬼故事", "肚子好餓喔", "這附近的房價多少",
             "最近有什麼好看的電影", "我要去睡覺了晚安", "真是夠了",
-            "哈囉", "有人在嗎", "測試測試", "一二三",
+            "哈囉", "有人在嗎", "測試測試", 
             "只要你開心就好", "我不同意你的看法", "這是不可能的",
             "我想買一台新車", "股市今天跌了", "比特幣現在多少錢"
         ]
@@ -792,7 +833,7 @@ def gen_transcript() -> Example:
             "Will it rain tomorrow", "Search for restaurants nearby", "Call Mom",
             "I'm so hungry", "What is the stock price of Apple",
             "Is there any good movie recently", "Goodnight", "That's enough",
-            "Testing one two three", "Anyone there", "Hey",
+            "Testing testing", "Anyone there", "Hey",
             "I want to buy a new car", "I don't agree with you", "That's impossible",
             "What time is it", "How tall is Mount Everest", "Who is the president"
         ]
@@ -801,9 +842,13 @@ def gen_transcript() -> Example:
 
     text = random.choice(texts)
     
+    forbidden = ["pause", "stop", "play", "turn", "open", "close", "set", "開", "關", "停"]
+    if any(f in text.lower() for f in forbidden):
+        text = "Hello world" if lang == "en" else "你好"
+
     phr = humanize_text(text, lang, noise_prob=0.0)
     
-    return emit_command("transcript", "none", None, None, make_slots(), phr, 0.15)
+    return emit_command("unknown", "none", None, None, make_slots(), phr, 0.15)
 
 GENERATORS = [
     (gen_lights, 0.20),
