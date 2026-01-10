@@ -148,24 +148,20 @@ def pick_room_word_and_target(base_target: str) -> Tuple[str, str, str]:
             return random.choice(ROOM_ALIASES_ZH["default"]), "default", "zh"
         return random.choice(ROOM_ALIASES_EN["default"]), "default", "en"
 
-    if random.random() < 0.30:
+    valid_personal_rooms = ["bedroom", "study", "guest_room", "nursery"]
+    
+    if base_target in valid_personal_rooms and random.random() < 0.30:
         if random.random() < 0.5:
             name = random.choice(PERSON_NAMES_ZH)
-            if base_target == "bedroom":
-                suffix = random.choice(["房間", "臥室", "寢室"])
-            elif base_target == "study":
-                suffix = random.choice(["書房", "辦公室"])
-            else:
-                suffix = "房間"
+            if base_target == "bedroom": suffix = random.choice(["房間", "臥室", "寢室"])
+            elif base_target == "study": suffix = random.choice(["書房", "辦公室"])
+            else: suffix = "房間"
             return f"{name}的{suffix}", base_target, "zh"
         else:
             name = random.choice(PERSON_NAMES_EN)
-            if base_target == "bedroom":
-                suffix = random.choice(["room", "bedroom"])
-            elif base_target == "study":
-                suffix = random.choice(["study", "office"])
-            else:
-                suffix = "room"
+            if base_target == "bedroom": suffix = random.choice(["room", "bedroom"])
+            elif base_target == "study": suffix = random.choice(["study", "office"])
+            else: suffix = "room"
             return f"{name}'s {suffix}", base_target, "en"
 
     lang = "zh" if random.random() < 0.5 else "en"
@@ -382,9 +378,11 @@ def gen_lights() -> Example:
             f"{prefix} {onoff} {room_word} {dev_word}",
             f"we need {room_word} {dev_word} {onoff}",
         ]
+    st = random.choice(structures)
+    phr = humanize_text(st.strip(), lang)
+    final_target = norm_target if room_word in st else "default"
     
-    phr = humanize_text(random.choice(structures).strip(), lang)
-    return emit_command("lights", action, norm_target, onoff, make_slots(device="light"), phr, 0.92)
+    return emit_command("lights", action, final_target, onoff, make_slots(device="light"), phr, 0.92)
 
 def gen_climate() -> Example:
     base_room = pick_room()
@@ -398,44 +396,27 @@ def gen_climate() -> Example:
         if lang == "zh":
             t_str = to_zh_count(temp) if random.random() < 0.4 else str(temp)
             structures = [
-                f"{room_word}{dev_word}調到{t_str}度",
+                f"{room_word}{dev_word}調到{t_str}度", 
                 f"溫度設為{t_str}",
-                f"{dev_word}調到{t_str}度",
+                f"{dev_word}設定{t_str}度", 
                 f"幫我把{room_word}氣溫定在{t_str}",
-                f"{room_word}改成{t_str}度",
-                f"設定{room_word}溫度{t_str}度",
-                f"把{room_word}調成{t_str}度",
-                f"{t_str}度就好",
-                f"我要{room_word}{t_str}度",
-                f"{room_word}需要{t_str}度",
-                f"冷氣設{t_str}度",
-                f"調整{room_word}到{t_str}度",
-                f"{room_word}的溫度要{t_str}度",
-                f"讓{room_word}變成{t_str}度",
+                f"{room_word}改成{t_str}度", 
+                f"我要{room_word}{t_str}度"
             ]
         else:
             structures = [
                 f"set {room_word} {dev_word} to {temp} degrees",
                 f"make it {temp} degrees in the {room_word}",
-                f"set {dev_word} to {temp}",
-                f"adjust temp to {temp} in {room_word}",
+                f"change {room_word} to {temp}",
                 f"{room_word} needs to be {temp} degrees",
-                f"change {room_word} to {temp} degrees",
-                f"{temp} degrees in {room_word}",
-                f"I want {room_word} at {temp}",
-                f"make {room_word} {temp} degrees",
-                f"set temperature {temp} in {room_word}",
-                f"{room_word} temperature {temp}",
-                f"adjust {room_word} {dev_word} {temp} degrees",
-                f"bring {room_word} to {temp}",
-                f"{temp} for the {room_word}",
+                f"set {dev_word} to {temp}",
+                f"put the {room_word} at {temp}"
             ]
         
         st = random.choice(structures)
         final_target = norm_target if room_word in st else "default"
         phr = humanize_text(st, lang)
-        return emit_command("climate", "set_temperature", final_target, None, 
-                           make_slots(device="thermostat", value=temp, unit="celsius", mode="setpoint"), phr, 0.86)
+        return emit_command("climate", "set_temperature", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="setpoint"), phr, 0.86)
     
     elif mode == "adjust":
         delta = random.choice([-5, -3, -2, -1, 1, 2, 3, 5])
@@ -445,8 +426,7 @@ def gen_climate() -> Example:
             structures = [
                 f"{room_word}{dev_word}{direction}{d_str}度",
                 f"{direction}{room_word}溫度{d_str}度",
-                f"把溫度{direction}{d_str}度",
-                f"{room_word}{'太冷' if delta > 0 else '太熱'}了，{direction}點",
+                f"把溫度{direction}{d_str}度"
             ]
         else:
             direction = "increase" if delta > 0 else "decrease"
@@ -455,34 +435,23 @@ def gen_climate() -> Example:
                 f"{direction} {room_word} temp by {abs(delta)} degrees",
                 f"make {room_word} {abs(delta)} degrees {'warmer' if delta > 0 else 'cooler'}",
                 f"{alt_dir} {room_word} temperature {abs(delta)} degrees",
-                f"{room_word} is too {'cold' if delta > 0 else 'hot'}, adjust it",
+                f"turn {alt_dir} the {room_word} AC by {abs(delta)}"
             ]
         
         phr = humanize_text(random.choice(structures), lang)
-        return emit_command("climate", "adjust_temperature", norm_target, None,
-                           make_slots(device="thermostat", value=delta, unit="celsius", mode="relative"), phr, 0.84)
+        return emit_command("climate", "adjust_temperature", norm_target, None, make_slots(device="thermostat", value=delta, unit="celsius", mode="relative"), phr, 0.84)
     
     else:
         onoff = random.choice(["on", "off"])
         action = "turn_on" if onoff == "on" else "turn_off"
         if lang == "zh":
             verb = random.choice(["打開", "開", "啟動"]) if onoff == "on" else random.choice(["關掉", "關", "停掉"])
-            structures = [
-                f"{verb}{room_word}{dev_word}",
-                f"{room_word}{dev_word}{verb}",
-                f"把{room_word}冷氣{verb}",
-            ]
+            st = f"{verb}{room_word}{dev_word}"
         else:
             verb = random.choice(["turn on", "switch on"]) if onoff == "on" else random.choice(["turn off", "switch off"])
-            structures = [
-                f"{verb} the {room_word} {dev_word}",
-                f"{verb} {room_word} AC",
-                f"{room_word} {dev_word} {onoff}",
-            ]
+            st = f"{verb} the {room_word} {dev_word}"
         
-        phr = humanize_text(random.choice(structures), lang)
-        return emit_command("climate", action, norm_target, onoff,
-                           make_slots(device="thermostat"), phr, 0.88)
+        return emit_command("climate", action, norm_target, onoff, make_slots(device="thermostat"), humanize_text(st, lang), 0.88)
 
 def gen_vacuum() -> Example:
     base_room = pick_room(weight_default=0.0)
@@ -596,8 +565,8 @@ def gen_curtain() -> Example:
             p_str = to_zh_count(percentage) if random.random() < 0.3 else str(percentage)
             structures = [
                 f"{room_word}{dev_word}開{p_str}%",
-                f"把{dev_word}打開{p_str}%",
-                f"{dev_word}開到{p_str}%",
+                f"把{dev_word}打開{p_str}%", 
+                f"{dev_word}開到{p_str}%",  
                 f"{room_word}的{dev_word}拉開{p_str}%",
             ]
         else:
@@ -605,12 +574,15 @@ def gen_curtain() -> Example:
                 f"open {room_word} {dev_word} {percentage}%",
                 f"set {dev_word} to {percentage}% in {room_word}",
                 f"{room_word} {dev_word} {percentage}% open",
-                f"open {dev_word} {percentage} percent",
+                f"open {dev_word} {percentage} percent", 
             ]
         
-        phr = humanize_text(random.choice(structures), lang)
-        return emit_command("curtain", "set_position", norm_target, None,
-                           make_slots(device="curtain", value=percentage, unit="percent"), phr, 0.85)
+        st = random.choice(structures)
+        phr = humanize_text(st, lang)
+
+        final_target = norm_target if room_word in st else "default"
+        
+        return emit_command("curtain", "set_position", final_target, None, make_slots(device="curtain", value=percentage, unit="percent"), phr, 0.85)
     
     else:
         action = "open" if action_type == "open" else "close"
@@ -633,9 +605,11 @@ def gen_curtain() -> Example:
                 f"I want {room_word} {dev_word} {action}",
             ]
         
-        phr = humanize_text(random.choice(structures), lang)
-        return emit_command("curtain", action, norm_target, action,
-                           make_slots(device="curtain"), phr, 0.87)
+        st = random.choice(structures)
+        phr = humanize_text(st, lang)
+        final_target = norm_target if room_word in st else "default"
+        
+        return emit_command("curtain", action, final_target, action,make_slots(device="curtain"), phr, 0.87)
 
 def gen_fan() -> Example:
     base_room = pick_room()
@@ -663,9 +637,12 @@ def gen_fan() -> Example:
                 f"put {room_word} {dev_word} on {speed}",
             ]
         
-        phr = humanize_text(random.choice(structures), lang)
-        return emit_command("fan", "set_speed", norm_target, None,
-                           make_slots(device="fan", value=speed, mode="speed"), phr, 0.86)
+        st = random.choice(structures)
+        phr = humanize_text(st, lang)
+
+        final_target = norm_target if room_word in st else "default"
+        
+        return emit_command("fan", "set_speed", final_target, None, make_slots(device="fan", value=speed, mode="speed"), phr, 0.86)
     
     else:
         onoff = random.choice(["on", "off"])
@@ -675,19 +652,22 @@ def gen_fan() -> Example:
             structures = [
                 f"{verb}{room_word}{dev_word}",
                 f"{room_word}{dev_word}{verb}",
-                f"把{dev_word}{verb}",
+                f"把{dev_word}{verb}", 
             ]
         else:
             verb = random.choice(["turn on", "switch on"]) if onoff == "on" else random.choice(["turn off", "switch off"])
             structures = [
                 f"{verb} {room_word} {dev_word}",
                 f"{room_word} {dev_word} {onoff}",
-                f"{verb} the {dev_word}",
+                f"{verb} the {dev_word}", 
             ]
         
-        phr = humanize_text(random.choice(structures), lang)
-        return emit_command("fan", action, norm_target, onoff,
-                           make_slots(device="fan"), phr, 0.88)
+        st = random.choice(structures)
+        phr = humanize_text(st, lang)
+
+        final_target = norm_target if room_word in st else "default"
+        
+        return emit_command("fan", action, final_target, onoff,make_slots(device="fan"), phr, 0.88)
 
 def gen_media() -> Example:
     base_room = pick_room()
@@ -696,7 +676,7 @@ def gen_media() -> Example:
     media_type = random.choice(["tv", "speaker"])
     dev_word = get_granular_device(media_type, lang)
     
-    action_type = random.choice(["onoff", "volume", "play_pause", "channel"])
+    action_type = random.choice(["onoff", "volume", "playback", "channel"])
     
     if action_type == "volume":
         vol = random.choice([10, 20, 30, 40, 50, 60, 70, 80, "up", "down"])
@@ -704,64 +684,56 @@ def gen_media() -> Example:
             if isinstance(vol, int):
                 v_str = to_zh_count(vol) if random.random() < 0.3 else str(vol)
                 structures = [
-                    f"{dev_word}音量調到{v_str}",
-                    f"音量{v_str}",
-                    f"把聲音調成{v_str}",
+                    f"{dev_word}音量調到{v_str}", f"音量{v_str}", f"把聲音調成{v_str}"
                 ]
             else:
                 v_str = "調大" if vol == "up" else "調小"
                 structures = [
-                    f"{dev_word}{v_str}聲音",
-                    f"音量{v_str}",
-                    f"聲音{'大' if vol == 'up' else '小'}聲一點",
+                    f"{dev_word}{v_str}聲音", f"音量{v_str}", f"聲音{'大' if vol == 'up' else '小'}聲一點"
                 ]
         else:
             if isinstance(vol, int):
                 structures = [
-                    f"set {dev_word} volume to {vol}",
-                    f"volume {vol}",
-                    f"make {dev_word} volume {vol}",
+                    f"set {dev_word} volume to {vol}", f"volume {vol}", f"make {dev_word} volume {vol}"
                 ]
             else:
                 structures = [
-                    f"turn {dev_word} volume {vol}",
-                    f"volume {vol}",
-                    f"make it {'louder' if vol == 'up' else 'quieter'}",
+                    f"turn {dev_word} volume {vol}", f"volume {vol}", f"make it {'louder' if vol == 'up' else 'quieter'}"
                 ]
         
         phr = humanize_text(random.choice(structures), lang)
-        return emit_command("media", "set_volume", norm_target, None,
-                           make_slots(device=media_type, value=vol, mode="volume"), phr, 0.85)
+        return emit_command("media", "set_volume", norm_target, None,make_slots(device=media_type, value=vol, mode="volume"), phr, 0.85)
     
     elif action_type == "onoff":
         onoff = random.choice(["on", "off"])
         action = "turn_on" if onoff == "on" else "turn_off"
         if lang == "zh":
             verb = random.choice(["打開", "開"]) if onoff == "on" else random.choice(["關掉", "關"])
-            structures = [f"{verb}{dev_word}", f"{dev_word}{verb}"]
+            st = f"{verb}{dev_word}"
         else:
             verb = random.choice(["turn on"]) if onoff == "on" else random.choice(["turn off"])
-            structures = [f"{verb} {dev_word}", f"{dev_word} {onoff}"]
+            st = f"{verb} {dev_word}"
         
-        phr = humanize_text(random.choice(structures), lang)
-        return emit_command("media", action, norm_target, onoff,
-                           make_slots(device=media_type), phr, 0.88)
+        return emit_command("media", action, norm_target, onoff, make_slots(device=media_type), humanize_text(st, lang), 0.88)
     
     else:
         if lang == "zh":
-            structures = [
-                random.choice(["播放", "繼續", "暫停", "停"]),
-                random.choice(["換台", "轉到三台", "切換頻道"]),
+            options = [
+                (["播放", "繼續", "繼續播放"], "play"),
+                (["暫停", "停", "先停一下"], "pause"),
+                (["換台", "轉到三台", "切換頻道", "下一台"], "channel_change")
             ]
         else:
-            structures = [
-                random.choice(["play", "pause", "resume"]),
-                random.choice(["change channel", "next channel", "channel up"]),
+            options = [
+                (["play", "resume", "continue music"], "play"),
+                (["pause", "stop", "hold on"], "pause"),
+                (["change channel", "next channel", "channel up"], "channel_change")
             ]
+            
+        phrases, action = random.choice(options)
+        phr = humanize_text(random.choice(phrases), lang)
         
-        phr = humanize_text(random.choice(structures), lang)
-        return emit_command("media", random.choice(["play", "pause", "channel_change"]), 
-                           norm_target, None, make_slots(device=media_type), phr, 0.84)
+        return emit_command("media", action, norm_target, None, make_slots(device=media_type), phr, 0.84)
 
 def compute_text_hash(text: str) -> str:
     normalized = text.lower().strip()
