@@ -14,11 +14,12 @@ ROOMS = [
     "guest_room", "nursery", "default"
 ]
 
+
 ROOM_ALIASES_ZH = {
     "bathroom": ["廁所", "浴室", "洗手間", "茅房", "洗澡的地方", "盥洗室", "洗手台", "衛浴間", "如廁處", "化妝間"],
     "kitchen": ["廚房", "灶咖", "煮飯的地方", "烹飪區", "料理台", "廚櫃", "煮食間", "烹調處"],
     "bedroom": ["房間", "臥室", "主臥", "睡覺的地方", "寢室", "主臥室", "睡房", "臥房", "休息室", "睡眠區"],
-    "living_room": ["客廳", "大廳", "起居室", "休憩區", "沙發區", "會客室", "休息廳", "交誼廳"],
+    "living_room": ["客廳", "起居室", "休憩區", "沙發區", "會客室", "休息廳", "交誼廳"], 
     "dining_room": ["餐廳", "飯廳", "吃飯的地方", "用餐區", "飯桌", "餐桌區"],
     "study": ["書房", "辦公室", "工作區", "電腦房", "讀書的地方", "工作間", "閱覽室", "研習室"],
     "balcony": ["陽台", "露台", "前陽台", "後陽台", "觀景台", "曬衣台"],
@@ -35,33 +36,30 @@ ROOM_ALIASES_ZH = {
 }
 
 ROOM_ALIASES_EN = {
-    "bathroom": ["bathroom", "restroom", "bath", "loo", "powder room", "toilet", "lavatory", "WC", "john"], 
-    "kitchen": ["kitchen", "cooking area", "scullery", "cookhouse", "kitchenette", "galley"],
-    "bedroom": ["bedroom", "master bedroom", "sleeping quarters", "bed chamber", "sleeping room", "master suite", "bunk room"],
-    "living_room": ["living room", "lounge", "family room", "sitting room", "parlor", "drawing room", "front room", "common room"], 
-    "dining_room": ["dining room", "dining area", "dinette", "eating area", "breakfast nook"],
+    "bathroom": ["bathroom", "restroom", "bath", "loo", "powder room", "toilet", "lavatory", "WC", "john"],
+    "kitchen": ["kitchen", "cooking area", "scullery", "cookhouse", "kitchenette", "galley", "cook room"],
+    "bedroom": ["bedroom", "master bedroom", "sleeping quarters", "bed chamber", "sleeping room", "master suite", "bunk room", "chamber"],
+    "living_room": ["living room", "lounge", "family room", "sitting room", "parlor", "drawing room", "front room", "common room"],
+    "dining_room": ["dining room", "dining area", "dinette", "eating area", "breakfast nook", "dining space"],
     "study": ["study", "office", "workspace", "home office", "desk area", "work room", "library", "den"], 
-    "balcony": ["balcony", "terrace", "patio", "deck", "veranda", "lanai"],
-    "hallway": ["hallway", "corridor", "hall", "passage", "passageway", "walkway"],
+    "balcony": ["balcony", "terrace", "patio", "deck", "veranda", "lanai", "gallery"],
+    "hallway": ["hallway", "corridor", "hall", "passage", "passageway", "gallery", "walkway"],
     "entryway": ["entryway", "foyer", "entrance", "front door area", "lobby", "mudroom", "vestibule", "porch"],
-    "garage": ["garage", "car port", "parking area"],
-    "basement": ["basement", "cellar", "downstairs", "lower level"],
-    "attic": ["attic", "loft", "upper level", "garret"],
-    "laundry_room": ["laundry room", "utility room", "laundry area", "washing room"],
+    "garage": ["garage", "car port", "parking area", "vehicle bay"],
+    "basement": ["basement", "cellar", "downstairs", "lower level", "sub level"],
+    "attic": ["attic", "loft", "upper level", "roof space", "garret"],
+    "laundry_room": ["laundry room", "wash room", "utility room", "laundry area"],
     "closet": ["closet", "wardrobe", "storage room", "walk-in"],
-    "guest_room": ["guest room", "spare room", "visitor room"],
-    "nursery": ["nursery", "baby room", "kids room", "playroom"],
-    "default": ["the house", "everywhere", "the whole place", "all rooms", "the entire home", "indoors"],
+    "guest_room": ["guest room", "spare room", "visitor room", "guest bedroom"],
+    "nursery": ["nursery", "baby room", "kids room", "children's room"],
+    "default": ["the house", "everywhere", "the whole place", "all rooms", "the entire home", "the whole house", "indoors", "all areas", "throughout"],
 }
 
 PERSON_NAMES_ZH = ["爸爸", "媽媽", "哥哥", "妹妹", "阿嬤", "爺爺", "小寶", "老王", "老婆", "老公", "弟弟", "姊姊", "寶貝", "親愛的", "小明", "小華", "阿姨", "叔叔", "奶奶", "外公", "外婆", "兒子", "女兒"]
 PERSON_NAMES_EN = ["Mom", "Dad", "Alice", "Bob", "Grandma", "Grandpa", "Tommy", "Baby", "Honey", "Sweetie", "Sis", "Bro", "Junior", "Sarah", "Mike", "Emma", "Jack", "Lily", "Max", "Sophie"]
 
-ADJ_GENERIC_ZH = ["大", "小", "舊", "新", "紅色", "藍色", "黃色", "那個", "旁邊的", "上面的", "前面", "後面", "左邊", "右邊", "中間", "角落"]
-ADJ_LIGHT_ONLY_ZH = ["主", "天花板", "地板", "桌上", "床頭", "閱讀", "明亮", "昏暗", "暖色", "冷色", "走廊", "牆壁"]
-
-ADJ_GENERIC_EN = ["big", "small", "old", "new", "red", "blue", "yellow", "that", "side", "upper", "front", "back", "left", "right", "center", "corner"]
-ADJ_LIGHT_ONLY_EN = ["main", "ceiling", "floor", "desk", "bedside", "reading", "bright", "dim", "warm", "cool", "wall", "mounted", "standing"]
+ADJECTIVES_ZH = ["主", "大", "小", "天花板", "地板", "智慧", "舊", "新", "紅色", "藍色", "黃色", "那個", "旁邊的", "上面的", "前面", "後面", "左邊", "右邊", "中間", "角落", "明亮", "昏暗", "暖色", "冷色", "牆壁"]
+ADJECTIVES_EN = ["main", "big", "small", "ceiling", "floor", "smart", "old", "new", "red", "blue", "yellow", "overhead", "corner", "fancy", "front", "back", "left", "right", "center", "bright", "dim", "warm", "cool", "wall", "mounted", "standing"]
 
 HOMOPHONES_ZH = {
     "幫我": ["邦我", "幫偶", "幫窝", "幫握"],
@@ -156,29 +154,26 @@ def pick_room_word_and_target(base_target: str) -> Tuple[str, str, str]:
         
         if base_target == "nursery":
             if lang == "zh":
-                name = random.choice(["寶寶", "小寶", "弟弟", "妹妹", "小朋友"])
+                name = random.choice(["寶寶", "小寶", "弟弟", "妹妹"])
                 suffix = random.choice(["房間", "房"])
             else:
-                name = random.choice(["Baby", "Junior", "Tommy", "The kid"])
+                name = random.choice(["Baby", "Junior", "Tommy"])
                 suffix = "room"
-                
         elif base_target == "guest_room":
             if lang == "zh":
-                name = random.choice(["客人", "訪客", "阿嬤", "外婆", "阿姨"])
+                name = random.choice(["客人", "訪客", "阿嬤", "外婆"])
                 suffix = random.choice(["房", "房間", "臥室"])
             else:
-                name = random.choice(["Guest", "Visitor", "Grandma", "Grandpa", "Auntie"])
+                name = random.choice(["Guest", "Visitor", "Grandma"])
                 suffix = "room"
-                
         elif base_target == "bedroom":
             if lang == "zh":
-                name = random.choice(["爸爸", "媽媽", "老公", "老婆", "主人"])
-                suffix = random.choice(["房間", "臥室", "寢室"])
+                name = random.choice(["爸爸", "媽媽", "老公", "老婆"])
+                suffix = random.choice(["房間", "臥室"])
             else:
                 name = random.choice(["Mom", "Dad", "Master", "Alice", "Bob"])
                 suffix = random.choice(["room", "bedroom"])
-                
-        else:
+        else: 
             if lang == "zh":
                 name = random.choice(["爸爸", "媽媽", "我"])
                 suffix = random.choice(["書房", "辦公室"])
@@ -190,6 +185,7 @@ def pick_room_word_and_target(base_target: str) -> Tuple[str, str, str]:
         return room_word, base_target, lang
 
     lang = "zh" if random.random() < 0.5 else "en"
+    
     if lang == "zh":
         word = random.choice(ROOM_ALIASES_ZH.get(base_target, ["房間"]))
     else:
@@ -199,11 +195,7 @@ def pick_room_word_and_target(base_target: str) -> Tuple[str, str, str]:
 
 def get_granular_device(dev_type: str, lang: str) -> str:
     variants = DEVICE_VARIANTS_ZH if lang == "zh" else DEVICE_VARIANTS_EN
-    
-    if dev_type == "light" or dev_type == "study":
-        adjectives = (ADJ_GENERIC_ZH + ADJ_LIGHT_ONLY_ZH) if lang == "zh" else (ADJ_GENERIC_EN + ADJ_LIGHT_ONLY_EN)
-    else:
-        adjectives = ADJ_GENERIC_ZH if lang == "zh" else ADJ_GENERIC_EN
+    adjectives = ADJECTIVES_ZH if lang == "zh" else ADJECTIVES_EN
     
     base = random.choice(variants.get(dev_type, [dev_type]))
     
@@ -395,7 +387,7 @@ def gen_lights() -> Example:
             f"can I have the {room_word} {dev_word} {onoff}",
             f"{room_word} {dev_word} needs to be {onoff}",
             f"I want the {room_word} {dev_word} {onoff}",
-            f"{intensity} {verb} the {dev_word}", 
+            f"{intensity} {verb} the {dev_word}",
             f"let's {verb} the {room_word} {dev_word}",
             f"could you {verb} {room_word} {dev_word}",
             f"{verb} all {dev_word}s in {room_word}",
@@ -411,13 +403,12 @@ def gen_lights() -> Example:
     
     st = random.choice(structures)
     phr = humanize_text(st.strip(), lang)
-    
     final_target = norm_target if room_word in st else "default"
     
     slots = make_slots(device="light")
     if is_implicit_device_word:
         slots["device"] = None
-        
+    
     return emit_command("lights", action, final_target, onoff, slots, phr, 0.92)
 
 def gen_climate() -> Example:
@@ -711,11 +702,8 @@ def gen_media() -> Example:
     def finalize_device_slot(phrase, original_dev_type):
         if is_implicit_device_word:
             return None
-        
-        clean_phr = phrase.lower()
-        if original_dev_type in clean_phr: return original_dev_type
-        if dev_word in phrase: return original_dev_type
-        
+        if original_dev_type in phrase.lower(): return original_dev_type
+        if dev_word in phrase: return original_dev_type 
         return None
 
     if action_type == "volume":
@@ -745,7 +733,7 @@ def gen_media() -> Example:
             else:
                 structures = [
                     f"turn {dev_word} volume {vol}", 
-                    f"volume {vol}", 
+                    f"volume {vol}",
                     f"make it {'louder' if vol == 'up' else 'quieter'}"
                 ]
         
@@ -753,7 +741,9 @@ def gen_media() -> Example:
         phr = humanize_text(st, lang)
         
         final_target = norm_target if room_word in phr else "default"
+        
         slots["device"] = finalize_device_slot(phr, media_type)
+             
         slots["value"] = str(vol)
         slots["mode"] = "volume"
         
@@ -772,6 +762,7 @@ def gen_media() -> Example:
         phr = humanize_text(st, lang)
         
         final_target = norm_target if room_word in phr else "default"
+        
         slots["device"] = finalize_device_slot(phr, media_type)
         
         return emit_command("media", action, final_target, onoff, slots, phr, 0.88)
@@ -789,6 +780,7 @@ def gen_media() -> Example:
         final_target = norm_target if room_word in phr else "default"
         
         return emit_command("media", "channel_change", final_target, None, slots, phr, 0.84)
+
     else:
         if lang == "zh":
             options = [
@@ -806,6 +798,7 @@ def gen_media() -> Example:
         phr = humanize_text(st, lang)
         
         final_target = norm_target if room_word in phr else "default"
+        
         slots["device"] = finalize_device_slot(phr, media_type)
         
         return emit_command("media", action, final_target, None, slots, phr, 0.84)
