@@ -327,6 +327,10 @@ def emit_command(domain, action, target, state, slots, text, base_conf=0.88) -> 
     conf = max(0.0, min(1.0, base_conf + random.uniform(-0.12, 0.06)))
     return Example("command", domain, action, target, state, slots, text, round(conf, 2))
 
+def emit_transcript(domain, action, target, state, slots, text, base_conf=0.88) -> Example:
+    conf = max(0.0, min(1.0, base_conf + random.uniform(-0.12, 0.06)))
+    return Example("transcript", domain, action, target, state, slots, text, round(conf, 2))
+
 def gen_lights() -> Example:
     base_room = pick_room()
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
@@ -882,7 +886,7 @@ def gen_transcript() -> Example:
 
     phr = humanize_text(text, lang, noise_prob=0.0)
     
-    return emit_command("unknown", "none", None, None, make_slots(), phr, 0.15)
+    return emit_transcript("unknown", "none", None, None, make_slots(), phr, 0.15)
 
 GENERATORS = [
     (gen_lights, 0.20),
@@ -974,13 +978,6 @@ def main():
     print(f"\nDomain distribution:")
     for domain, count in sorted(domains.items(), key=lambda x: -x[1]):
         print(f"  {domain}: {count:,} ({100*count/len(data):.1f}%)")
-    print(f"{'='*60}")
-    
-    print(f"\nSample outputs (first 5 examples):")
-    for i, ex in enumerate(data[:5], 1):
-        print(f"\n{i}. [{ex.domain}/{ex.action}]")
-        print(f"   Text: {ex.raw_text}")
-        print(f"   Target: {ex.target}, State: {ex.state}")
 
 if __name__ == "__main__":
     main()
