@@ -42,13 +42,13 @@ ROOM_ALIASES_EN = {
     "living_room": ["living room", "lounge", "family room", "sitting room", "parlor", "drawing room", "front room", "common room"],
     "dining_room": ["dining room", "dining area", "dinette", "eating area", "breakfast nook", "dining space"],
     "study": ["study", "office", "workspace", "home office", "desk area", "work room", "library", "den"], 
-    "balcony": ["balcony", "terrace", "patio", "deck", "veranda", "lanai", "gallery"],
+    "balcony": ["balcony", "terrace", "patio", "deck", "veranda", "lanai"],
     "hallway": ["hallway", "corridor", "hall", "passage", "passageway", "gallery", "walkway"],
     "entryway": ["entryway", "foyer", "entrance", "front door area", "lobby", "mudroom", "vestibule", "porch"],
     "garage": ["garage", "car port", "parking area", "vehicle bay"],
     "basement": ["basement", "cellar", "downstairs", "lower level", "sub level"],
     "attic": ["attic", "loft", "upper level", "roof space", "garret"],
-    "laundry_room": ["laundry room", "wash room", "utility room", "laundry area"],
+    "laundry_room": ["laundry room", "utility room", "laundry area"],
     "closet": ["closet", "wardrobe", "storage room", "walk-in"],
     "guest_room": ["guest room", "spare room", "visitor room", "guest bedroom"],
     "nursery": ["nursery", "baby room", "kids room", "children's room"],
@@ -754,22 +754,22 @@ def gen_media() -> Example:
         return emit_command("media", "set_volume", final_target, None, slots, phr, 0.85)
 
     elif action_type == "onoff":
-        onoff = random.choice(["on", "off"])
-        action = "turn_on" if onoff == "on" else "turn_off"
-        if lang == "zh":
-            verb = random.choice(["打開", "開"]) if onoff == "on" else random.choice(["關掉", "關"])
-            st = f"{verb}{dev_word}"
+        if is_implicit_device_word:
+            action_type = "playback" 
         else:
-            verb = random.choice(["turn on"]) if onoff == "on" else random.choice(["turn off"])
-            st = f"{verb} {dev_word}"
-        
-        phr = humanize_text(st, lang)
-        
-        final_target = norm_target if room_word in phr else "default"
-        
-        slots["device"] = finalize_device_slot(phr, media_type)
-        
-        return emit_command("media", action, final_target, onoff, slots, phr, 0.88)
+            onoff = random.choice(["on", "off"])
+            action = "turn_on" if onoff == "on" else "turn_off"
+            if lang == "zh":
+                verb = random.choice(["打開", "開"]) if onoff == "on" else random.choice(["關掉", "關"])
+                st = f"{verb}{dev_word}"
+            else:
+                verb = random.choice(["turn on"]) if onoff == "on" else random.choice(["turn off"])
+                st = f"{verb} {dev_word}"
+            
+            phr = humanize_text(st, lang)
+            final_target = norm_target if room_word in phr else "default"
+            slots["device"] = finalize_device_slot(phr, media_type)
+            return emit_command("media", action, final_target, onoff, slots, phr, 0.88)
     
     elif action_type == "channel":
         if lang == "zh":
@@ -785,7 +785,7 @@ def gen_media() -> Example:
         
         return emit_command("media", "channel_change", final_target, None, slots, phr, 0.84)
 
-    else:
+    if action_type == "playback":
         if lang == "zh":
             options = [
                 (["播放", "繼續", "繼續播放"], "play"),
@@ -799,10 +799,12 @@ def gen_media() -> Example:
             
         phrases, action = random.choice(options)
         st = random.choice(phrases)
+        if is_implicit_device_word:
+            if lang == "en" and action == "play": st = "play it"
+            if lang == "en" and action == "pause": st = "pause it"
+            
         phr = humanize_text(st, lang)
-        
         final_target = norm_target if room_word in phr else "default"
-        
         slots["device"] = finalize_device_slot(phr, media_type)
         
         return emit_command("media", action, final_target, None, slots, phr, 0.84)
@@ -852,16 +854,14 @@ def gen_transcript() -> Example:
         texts = [
             "你好嗎", "今天天氣真好", "你覺得這件衣服好看嗎", "我等等要出門",
             "告訴我一個笑話", "背誦一首唐詩", "生命的意義是什麼", "現在幾點了",
-            "這太好笑了", "哎呀", "那個...我忘記了", "隨便啦",
+            "這太好笑了", "哎呀", "隨便啦",
             "明天會下雨嗎", "幫我搜尋一下附近的餐廳", "打電話給媽媽",
             "我想聽鬼故事", "肚子好餓喔", "這附近的房價多少",
             "最近有什麼好看的電影", "我要去睡覺了晚安", "真是夠了",
-            "哈囉", "有人在嗎", "測試測試", 
+            "哈囉", "有人在嗎", "測試測試",
             "只要你開心就好", "我不同意你的看法", "這是不可能的",
             "我想買一台新車", "股市今天跌了", "比特幣現在多少錢"
         ]
-        if random.random() < 0.2:
-            texts.extend(["那個...", "呃...就是那個...", "我想...", "不是，我是說..."])
     else:
         texts = [
             "Hello there", "How are you doing", "What is the meaning of life",
@@ -871,20 +871,20 @@ def gen_transcript() -> Example:
             "Will it rain tomorrow", "Search for restaurants nearby", "Call Mom",
             "I'm so hungry", "What is the stock price of Apple",
             "Is there any good movie recently", "Goodnight", "That's enough",
-            "Testing testing", "Anyone there", "Hey",
+            "Testing testing", "Anyone there", "Can you hear me",
             "I want to buy a new car", "I don't agree with you", "That's impossible",
             "What time is it", "How tall is Mount Everest", "Who is the president"
         ]
-        if random.random() < 0.2:
-            texts.extend(["Um...", "Uh, I mean...", "Actually...", "Wait, no..."])
 
     text = random.choice(texts)
     
-    forbidden = ["pause", "stop", "play", "turn", "open", "close", "set", "開", "關", "停"]
+    # Expanded Safety Filter
+    forbidden = ["pause", "stop", "play", "turn", "open", "close", "set", "開", "關", "停", "minute", "hour", "分鐘", "小時"]
     if any(f in text.lower() for f in forbidden):
         text = "Hello world" if lang == "en" else "你好"
 
     phr = humanize_text(text, lang, noise_prob=0.0)
+    return emit_command("transcript", "none", None, None, make_slots(), phr, 0.15)
     
     return emit_transcript("unknown", "none", None, None, make_slots(), phr, 0.15)
 
