@@ -18,7 +18,7 @@ ROOMS = [
 ROOM_ALIASES_ZH = {
     "bathroom": ["廁所", "浴室", "洗手間", "茅房", "洗澡的地方", "盥洗室", "洗手台", "衛浴間", "如廁處", "化妝間"],
     "kitchen": ["廚房", "灶咖", "煮飯的地方", "烹飪區", "料理台", "廚櫃", "煮食間", "烹調處"],
-    "bedroom": ["房間", "臥室", "主臥", "睡覺的地方", "寢室", "主臥室", "睡房", "臥房", "休息室", "睡眠區"],
+    "bedroom": ["房間", "臥室", "主臥", "睡覺的地方", "寢室", "主臥室", "睡房", "臥房", "睡眠區"],
     "living_room": ["客廳", "起居室", "休憩區", "沙發區", "會客室", "休息廳", "交誼廳"], 
     "dining_room": ["餐廳", "飯廳", "吃飯的地方", "用餐區", "飯桌", "餐桌區"],
     "study": ["書房", "辦公室", "工作區", "電腦房", "讀書的地方", "工作間", "閱覽室", "研習室"],
@@ -411,7 +411,10 @@ def gen_lights() -> Example:
     final_target = norm_target if room_word in st else "default"
     
     slots = make_slots(device="light")
-    if is_implicit_device_word:
+    
+    if "燈" in phr or "light" in phr.lower() or "lamp" in phr.lower():
+        slots["device"] = "light"
+    elif is_implicit_device_word:
         slots["device"] = None
     
     return emit_command("lights", action, final_target, onoff, slots, phr, 0.92)
@@ -698,7 +701,7 @@ def gen_media() -> Example:
     dev_word = get_granular_device(media_type, lang)
     
     is_implicit_device_word = False
-    if random.random() < 0.20:
+    if random.random() < 0.50:
         dev_word = "它" if lang == "zh" else "it"
         is_implicit_device_word = True
     
