@@ -154,10 +154,11 @@ def pick_room_word_and_target(base_target: str) -> Tuple[str, str, str]:
         
         if base_target == "nursery":
             if lang == "zh":
-                name = random.choice(["寶寶", "小寶", "弟弟", "妹妹"])
+                name = random.choice(["寶寶", "小寶", "弟弟", "妹妹", "兒童", "小孩"])
                 suffix = random.choice(["房間", "房"])
             else:
-                name = random.choice(["Baby", "Junior", "Tommy"])
+                name = random.choice(["Baby", "Junior", "Tommy", "Kids", "Child's"]) 
+                suffix = random.choice(["room", "bedroom"])
                 suffix = "room"
         elif base_target == "guest_room":
             if lang == "zh":
@@ -494,33 +495,43 @@ def gen_vacuum() -> Example:
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
     dev_word = get_granular_device("vacuum", lang)
     
-    act_type = random.choice(["generic", "specific"])
+    act_type = random.choice(["room", "generic", "dock"])
     
-    if act_type == "specific":
-        act = "set"
+    if act_type == "room":
         if lang == "zh":
             st = f"{dev_word}去打掃{room_word}"
         else:
             st = f"{dev_word} go clean the {room_word}"
         
-        return emit_command("vacuum", "set", norm_target, None, make_slots(device="robot_vacuum", mode="room", value=norm_target),  humanize_text(st, lang), 0.90)
+        return emit_command("vacuum", "set", norm_target, None, make_slots(device="robot_vacuum", mode="room", value=norm_target), humanize_text(st, lang), 0.90)
+
+    elif act_type == "dock":
+        if lang == "zh":
+            phrases = ["回家", "回去充電", "回基座", "充電"]
+            st = f"{dev_word}{random.choice(phrases)}"
+        else:
+            phrases = ["go home", "return to base", "dock", "charge", "return home"]
+            st = f"{dev_word} {random.choice(phrases)}"
+            
+        return emit_command("vacuum", "dock", "default", None, make_slots(device="robot_vacuum"), humanize_text(st, lang), 0.90)
+
     else:
-        act = random.choice(["start", "stop", "dock", "pause"])
+        act = random.choice(["start", "stop", "pause"])
         if lang == "zh":
             v_map = {
                 "start": ["開始掃地", "啟動"], "stop": ["停止", "停"], 
-                "dock": ["回去充電", "回家"], "pause": ["暫停", "等一下"]
+                "pause": ["暫停", "等一下"]
             }
         else:
             v_map = {
                 "start": ["start cleaning", "start"], "stop": ["stop", "halt"],
-                "dock": ["dock", "return home"], "pause": ["pause", "hold on"]
+                "pause": ["pause", "hold on"]
             }
             
         st = f"{dev_word} {random.choice(v_map[act])}" if lang == "en" else f"{dev_word}{random.choice(v_map[act])}"
         phr = humanize_text(st, lang)
         
-        return emit_command("vacuum", act, "default", None,  make_slots(device="robot_vacuum"), phr, 0.85)
+        return emit_command("vacuum", act, "default", None, make_slots(device="robot_vacuum"), phr, 0.85)
 
 def gen_timer() -> Example:
     lang = "zh" if random.random() < 0.5 else "en"
@@ -657,35 +668,27 @@ def gen_fan() -> Example:
         
         st = random.choice(structures)
         phr = humanize_text(st, lang)
-
         final_target = norm_target if room_word in st else "default"
         
-        return emit_command("fan", "set_speed", final_target, None, make_slots(device="fan", value=speed, mode="speed"), phr, 0.86)
+        return emit_command("fan", "set_speed", final_target, None, 
+                           make_slots(device="fan", value=speed, mode="speed", unit=None), 
+                           phr, 0.86)
     
     else:
         onoff = random.choice(["on", "off"])
         action = "turn_on" if onoff == "on" else "turn_off"
         if lang == "zh":
             verb = random.choice(["打開", "開"]) if onoff == "on" else random.choice(["關掉", "關"])
-            structures = [
-                f"{verb}{room_word}{dev_word}",
-                f"{room_word}{dev_word}{verb}",
-                f"把{dev_word}{verb}", 
-            ]
+            structures = [f"{verb}{room_word}{dev_word}", f"{room_word}{dev_word}{verb}", f"把{dev_word}{verb}"]
         else:
             verb = random.choice(["turn on", "switch on"]) if onoff == "on" else random.choice(["turn off", "switch off"])
-            structures = [
-                f"{verb} {room_word} {dev_word}",
-                f"{room_word} {dev_word} {onoff}",
-                f"{verb} the {dev_word}", 
-            ]
+            structures = [f"{verb} {room_word} {dev_word}", f"{room_word} {dev_word} {onoff}", f"{verb} the {dev_word}"]
         
         st = random.choice(structures)
         phr = humanize_text(st, lang)
-
         final_target = norm_target if room_word in st else "default"
         
-        return emit_command("fan", action, final_target, onoff,make_slots(device="fan"), phr, 0.88)
+        return emit_command("fan", action, final_target, onoff, make_slots(device="fan"), phr, 0.88)
 
 def gen_media() -> Example:
     base_room = pick_room()
@@ -850,41 +853,56 @@ def mutate_example(ex: Example, attempts: int) -> Example:
 
 def gen_transcript() -> Example:
     lang = "zh" if random.random() < 0.5 else "en"
-    if lang == "zh":
-        texts = [
-            "你好嗎", "今天天氣真好", "你覺得這件衣服好看嗎", "我等等要出門",
-            "告訴我一個笑話", "背誦一首唐詩", "生命的意義是什麼", "現在幾點了",
-            "這太好笑了", "哎呀", "隨便啦",
-            "明天會下雨嗎", "幫我搜尋一下附近的餐廳", "打電話給媽媽",
-            "我想聽鬼故事", "肚子好餓喔", "這附近的房價多少",
-            "最近有什麼好看的電影", "我要去睡覺了晚安", "真是夠了",
-            "哈囉", "有人在嗎", "測試測試",
-            "只要你開心就好", "我不同意你的看法", "這是不可能的",
-            "我想買一台新車", "股市今天跌了", "比特幣現在多少錢"
-        ]
-    else:
-        texts = [
-            "Hello there", "How are you doing", "What is the meaning of life",
-            "Tell me a joke", "Sing a song for me", "I am going out later",
-            "Did you see that game last night", "That is hilarious", "Oh my god",
-            "Never mind", "I forgot what I was saying", "Whatever",
-            "Will it rain tomorrow", "Search for restaurants nearby", "Call Mom",
-            "I'm so hungry", "What is the stock price of Apple",
-            "Is there any good movie recently", "Goodnight", "That's enough",
-            "Testing testing", "Anyone there", "Can you hear me",
-            "I want to buy a new car", "I don't agree with you", "That's impossible",
-            "What time is it", "How tall is Mount Everest", "Who is the president"
-        ]
-
-    text = random.choice(texts)
     
-    # Expanded Safety Filter
+    hard_negatives_zh = [
+        "我想買一台新車", "股市今天跌了", "比特幣現在多少錢", "我要買車",
+        "這輛車多少錢", "開車去上班", "公車來了嗎", "叫計程車"
+    ]
+    hard_negatives_en = [
+        "I want to buy a new car", "I don't agree with you", "That's impossible",
+        "What time is it", "How tall is Mount Everest", "Who is the president",
+        "I want to purchase a vehicle", "Buy a tesla", "Call an uber", "Taxi please"
+    ]
+
+    if lang == "zh":
+        if random.random() < 0.3:
+            text = random.choice(hard_negatives_zh)
+        else:
+            texts = [
+                "你好嗎", "今天天氣真好", "你覺得這件衣服好看嗎", "我等等要出門",
+                "告訴我一個笑話", "背誦一首唐詩", "生命的意義是什麼", "現在幾點了",
+                "這太好笑了", "哎呀", "隨便啦",
+                "明天會下雨嗎", "幫我搜尋一下附近的餐廳", "打電話給媽媽",
+                "我想聽鬼故事", "肚子好餓喔", "這附近的房價多少",
+                "最近有什麼好看的電影", "我要去睡覺了晚安", "真是夠了",
+                "哈囉", "有人在嗎", "測試測試"
+            ]
+            if random.random() < 0.2:
+                texts.extend(["那個...", "呃...就是那個...", "我想...", "不是，我是說..."])
+            text = random.choice(texts)
+    else:
+        if random.random() < 0.3:
+            text = random.choice(hard_negatives_en)
+        else:
+            texts = [
+                "Hello there", "How are you doing", "What is the meaning of life",
+                "Tell me a joke", "Sing a song for me", "I am going out later",
+                "Did you see that game last night", "That is hilarious", "Oh my god",
+                "Never mind", "I forgot what I was saying", "Whatever",
+                "Will it rain tomorrow", "Search for restaurants nearby", "Call Mom",
+                "I'm so hungry", "What is the stock price of Apple",
+                "Is there any good movie recently", "Goodnight", "That's enough",
+                "Testing testing", "Anyone there", "Can you hear me"
+            ]
+            if random.random() < 0.2:
+                texts.extend(["Um...", "Uh, I mean...", "Actually...", "Wait, no..."])
+            text = random.choice(texts)
+
     forbidden = ["pause", "stop", "play", "turn", "open", "close", "set", "開", "關", "停", "minute", "hour", "分鐘", "小時"]
     if any(f in text.lower() for f in forbidden):
         text = "Hello world" if lang == "en" else "你好"
 
     phr = humanize_text(text, lang, noise_prob=0.0)
-    return emit_command("transcript", "none", None, None, make_slots(), phr, 0.15)
     
     return emit_transcript("unknown", "none", None, None, make_slots(), phr, 0.15)
 
