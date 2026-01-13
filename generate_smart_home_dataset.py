@@ -475,7 +475,7 @@ def gen_climate() -> Example:
         final_target = norm_target if room_word in st else "default"
         phr = humanize_text(st, lang)
         
-        slots["value"] = temp
+        slots["value"] = str(temp)
         slots["unit"] = "celsius"
         slots["mode"] = "setpoint"
         slots["device"] = finalize_device_slot(phr)
@@ -504,8 +504,8 @@ def gen_climate() -> Example:
         st = random.choice(structures)
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
-        
-        slots["value"] = delta
+
+        slots["value"] = str(delta)
         slots["unit"] = "celsius"
         slots["mode"] = "relative"
         slots["device"] = finalize_device_slot(phr)
@@ -661,8 +661,8 @@ def gen_curtain() -> Example:
         st = random.choice(structures)
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
-        
-        slots["value"] = percentage
+
+        slots["value"] = str(percentage)
         slots["unit"] = "percent"
         slots["device"] = finalize_device_slot(phr)
 
