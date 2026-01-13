@@ -339,15 +339,16 @@ def gen_lights() -> Example:
     dev_word = get_granular_device("light", lang)
     
     is_implicit_device_word = False
+
     if random.random() < 0.50:
         dev_word = "它" if lang == "zh" else "it"
         is_implicit_device_word = True
 
     onoff = random.choice(["on", "off"])
     action = "turn_on" if onoff == "on" else "turn_off"
-    
-    strong_light_verbs_zh = ["亮起來", "點亮", "弄亮", "照亮", "熄滅", "滅掉", "弄暗", "滅燈"]
-    strong_light_verbs_en = ["light up", "extinguish", "illuminate", "dim", "brighten"]
+
+    strong_verbs_zh = ["亮起來", "點亮", "弄亮", "照亮", "熄滅", "滅掉", "弄暗", "滅燈"]
+    strong_verbs_en = ["illuminate", "brighten", "dim", "extinguish", "light up"]
 
     if lang == "zh":
         verbs_on = ["打開", "開", "開一下", "開啟", "啟動"] + ["亮起來", "點亮", "點開", "弄亮", "開燈", "讓...亮", "照亮"]
@@ -380,8 +381,8 @@ def gen_lights() -> Example:
             f"麻煩{verb}{room_word}{dev_word}好嗎",
         ]
     else:
-        verbs_on = ["turn on", "switch on", "activate", "power on", "hit", "enable", "fire up", "bring up"] + ["light up", "flip on"]
-        verbs_off = ["turn off", "switch off", "kill", "cut", "shut off", "disable", "power down", "shut down"] + ["extinguish", "flip off"]
+        verbs_on = ["turn on", "switch on", "activate", "power on", "hit", "enable", "fire up", "bring up"] + ["light up", "flip on", "illuminate", "brighten"]
+        verbs_off = ["turn off", "switch off", "kill", "cut", "shut off", "disable", "power down", "shut down"] + ["extinguish", "flip off", "dim"]
         verb = random.choice(verbs_on if onoff == "on" else verbs_off)
         
         prefix = random.choice(PREFIXES_EN) if random.random() < 0.35 else ""
@@ -416,12 +417,12 @@ def gen_lights() -> Example:
     
     slots = make_slots(device="light")
     
-    has_strong_verb = (verb in strong_light_verbs_zh) if lang == "zh" else (verb in strong_light_verbs_en)
-    
+    has_strong_verb = (verb in strong_verbs_zh) if lang == "zh" else (verb in strong_verbs_en)
+
     if "燈" in phr or "light" in phr.lower() or "lamp" in phr.lower():
         slots["device"] = "light"
     elif has_strong_verb:
-        slots["device"] = "light"
+        slots["device"] = "light" 
     elif is_implicit_device_word:
         slots["device"] = None
     
@@ -432,8 +433,22 @@ def gen_climate() -> Example:
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
     dev_word = get_granular_device("ac", lang)
     
+    is_implicit_device_word = False
+    if random.random() < 0.30:
+        dev_word = "它" if lang == "zh" else "it"
+        is_implicit_device_word = True
+    
     mode = random.choice(["set_temp", "set_temp", "onoff", "adjust"])
     
+    slots = make_slots(device="thermostat")
+
+    def finalize_device_slot(phrase):
+        if is_implicit_device_word:
+            return None
+        if "ac" in phrase.lower() or "thermostat" in phrase.lower() or "冷氣" in phrase or "空調" in phrase:
+            return "thermostat"
+        return None
+
     if mode == "set_temp":
         temp = random.randint(16, 30)
         if lang == "zh":
@@ -459,7 +474,13 @@ def gen_climate() -> Example:
         st = random.choice(structures)
         final_target = norm_target if room_word in st else "default"
         phr = humanize_text(st, lang)
-        return emit_command("climate", "set_temperature", final_target, None, make_slots(device="thermostat", value=temp, unit="celsius", mode="setpoint"), phr, 0.86)
+        
+        slots["value"] = temp
+        slots["unit"] = "celsius"
+        slots["mode"] = "setpoint"
+        slots["device"] = finalize_device_slot(phr)
+
+        return emit_command("climate", "set_temperature", final_target, None, slots, phr, 0.86)
     
     elif mode == "adjust":
         delta = random.choice([-5, -3, -2, -1, 1, 2, 3, 5])
@@ -484,7 +505,12 @@ def gen_climate() -> Example:
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
         
-        return emit_command("climate", "adjust_temperature", final_target, None, make_slots(device="thermostat", value=delta, unit="celsius", mode="relative"), phr, 0.84)
+        slots["value"] = delta
+        slots["unit"] = "celsius"
+        slots["mode"] = "relative"
+        slots["device"] = finalize_device_slot(phr)
+        
+        return emit_command("climate", "adjust_temperature", final_target, None, slots, phr, 0.84)
     
     else:
         onoff = random.choice(["on", "off"])
@@ -494,13 +520,14 @@ def gen_climate() -> Example:
             st = f"{verb}{room_word}{dev_word}"
         else:
             verb = random.choice(["turn on", "switch on"]) if onoff == "on" else random.choice(["turn off", "switch off"])
-            st = f"{verb} the {room_word} {dev_word}"
+            st = f"{verb} {room_word} {dev_word}"
             
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
+        slots["device"] = finalize_device_slot(phr)
         
-        return emit_command("climate", action, final_target, onoff, make_slots(device="thermostat"), phr, 0.88)
-
+        return emit_command("climate", action, final_target, onoff, slots, phr, 0.88)
+    
 def gen_vacuum() -> Example:
     base_room = pick_room(weight_default=0.0) 
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
@@ -515,7 +542,7 @@ def gen_vacuum() -> Example:
         else:
             st = f"{dev_word} go clean the {room_word}"
         
-        return emit_command("vacuum", "set", norm_target, None, make_slots(device="robot_vacuum", mode="room", value=norm_target), humanize_text(st, lang), 0.90)
+        return emit_command("vacuum", "set", norm_target, state, make_slots(device="robot_vacuum", mode="room", value=norm_target), humanize_text(st, lang), 0.90)
 
     elif act_type == "dock":
         if lang == "zh":
@@ -525,7 +552,6 @@ def gen_vacuum() -> Example:
             phrases = ["go home", "return to base", "dock", "charge", "return home"]
             st = f"{dev_word} {random.choice(phrases)}"
             
-        if random.random() < 0.1: state = "docked"
         return emit_command("vacuum", "dock", "default", state, make_slots(device="robot_vacuum"), humanize_text(st, lang), 0.90)
 
     else:
@@ -542,8 +568,6 @@ def gen_vacuum() -> Example:
             }
             
         st = f"{dev_word} {random.choice(v_map[act])}" if lang == "en" else f"{dev_word}{random.choice(v_map[act])}"
-        if act == "start" and random.random() < 0.1: state = "cleaning"
-        if act == "stop" and random.random() < 0.1: state = "idle"
         
         return emit_command("vacuum", act, "default", state, make_slots(device="robot_vacuum"), humanize_text(st, lang), 0.85)
     
@@ -600,8 +624,22 @@ def gen_curtain() -> Example:
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
     dev_word = get_granular_device("curtain", lang)
     
+    is_implicit_device_word = False
+    if random.random() < 0.30:
+        dev_word = "它" if lang == "zh" else "it"
+        is_implicit_device_word = True
+
     action_type = random.choice(["open", "close", "partial"])
     
+    slots = make_slots(device="curtain")
+    
+    def finalize_device_slot(phrase):
+        if is_implicit_device_word:
+            return None
+        if "curtain" in phrase.lower() or "blind" in phrase.lower() or "窗簾" in phrase or "簾" in phrase:
+             return "curtain"
+        return None
+
     if action_type == "partial":
         percentage = random.choice([25, 30, 50, 75, 80])
         if lang == "zh":
@@ -622,10 +660,13 @@ def gen_curtain() -> Example:
         
         st = random.choice(structures)
         phr = humanize_text(st, lang)
-
         final_target = norm_target if room_word in st else "default"
         
-        return emit_command("curtain", "set_position", final_target, None, make_slots(device="curtain", value=percentage, unit="percent"), phr, 0.85)
+        slots["value"] = percentage
+        slots["unit"] = "percent"
+        slots["device"] = finalize_device_slot(phr)
+
+        return emit_command("curtain", "set_position", final_target, None, slots, phr, 0.85)
     
     else:
         action = "open" if action_type == "open" else "close"
@@ -651,13 +692,19 @@ def gen_curtain() -> Example:
         st = random.choice(structures)
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
-        
-        return emit_command("curtain", action, final_target, action,make_slots(device="curtain"), phr, 0.87)
+        slots["device"] = finalize_device_slot(phr)
+
+        return emit_command("curtain", action, final_target, action, slots, phr, 0.87)
 
 def gen_fan() -> Example:
     base_room = pick_room()
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
     dev_word = get_granular_device("fan", lang)
+    
+    is_implicit = False
+    if random.random() < 0.30:
+        dev_word = "它" if lang == "zh" else "it"
+        is_implicit = True
     
     action_type = random.choice(["onoff", "speed"])
     
@@ -683,10 +730,12 @@ def gen_fan() -> Example:
         st = random.choice(structures)
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
+        slots = make_slots(device="fan", value=speed, mode="speed", unit=None)
         
-        return emit_command("fan", "set_speed", final_target, None, 
-                           make_slots(device="fan", value=speed, mode="speed", unit=None), 
-                           phr, 0.86)
+        if is_implicit:
+            slots["device"] = None
+            
+        return emit_command("fan", "set_speed", final_target, None, slots, phr, 0.86)
     
     else:
         onoff = random.choice(["on", "off"])
@@ -702,7 +751,12 @@ def gen_fan() -> Example:
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
         
-        return emit_command("fan", action, final_target, onoff, make_slots(device="fan"), phr, 0.88)
+        slots = make_slots(device="fan")
+        
+        if is_implicit:
+            slots["device"] = None
+            
+        return emit_command("fan", action, final_target, onoff, slots, phr, 0.88)
 
 def gen_media() -> Example:
     base_room = pick_room()
