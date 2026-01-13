@@ -338,7 +338,7 @@ def gen_lights() -> Example:
     dev_word = get_granular_device("light", lang)
     
     is_implicit_device_word = False
-    if random.random() < 0.12:
+    if random.random() < 0.5:
         dev_word = "它" if lang == "zh" else "it"
         is_implicit_device_word = True
 
@@ -910,14 +910,14 @@ def gen_transcript() -> Example:
     return emit_transcript("unknown", "none", None, None, make_slots(), phr, 0.15)
 
 GENERATORS = [
-    (gen_lights, 0.20),
+    (gen_lights, 0.15),
     (gen_climate, 0.15),
     (gen_vacuum, 0.10),
     (gen_timer, 0.10),
     (gen_curtain, 0.10),
     (gen_fan, 0.10),
     (gen_media, 0.10),
-    (gen_transcript, 0.15), 
+    (gen_transcript, 0.20), 
 ]
 
 def generate(n: int, max_attempts: int = 15) -> List[Example]:
