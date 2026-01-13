@@ -730,7 +730,7 @@ def gen_fan() -> Example:
         st = random.choice(structures)
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
-        slots = make_slots(device="fan", value=speed, mode="speed", unit=None)
+        slots = make_slots(device="fan", value=str(speed), mode="speed", unit=None)
         
         if is_implicit:
             slots["device"] = None
