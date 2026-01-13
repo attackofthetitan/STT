@@ -2,6 +2,7 @@ import json
 import random
 import argparse
 from dataclasses import dataclass, asdict
+from turtle import st
 from typing import Dict, Any, Optional, List, Tuple
 import hashlib
 
@@ -338,16 +339,19 @@ def gen_lights() -> Example:
     dev_word = get_granular_device("light", lang)
     
     is_implicit_device_word = False
-    if random.random() < 0.5:
+    if random.random() < 0.50:
         dev_word = "它" if lang == "zh" else "it"
         is_implicit_device_word = True
 
     onoff = random.choice(["on", "off"])
     action = "turn_on" if onoff == "on" else "turn_off"
+    
+    strong_light_verbs_zh = ["亮起來", "點亮", "弄亮", "照亮", "熄滅", "滅掉", "弄暗", "滅燈"]
+    strong_light_verbs_en = ["light up", "extinguish", "illuminate", "dim", "brighten"]
 
     if lang == "zh":
-        verbs_on = ["打開", "開", "開一下", "開啟", "啟動", "亮起來", "點亮", "點開", "弄亮", "開燈", "讓...亮", "照亮"]
-        verbs_off = ["關掉", "關", "關一下", "關閉", "熄滅", "滅掉", "暗掉", "關燈", "弄暗", "滅燈", "停掉"]
+        verbs_on = ["打開", "開", "開一下", "開啟", "啟動"] + ["亮起來", "點亮", "點開", "弄亮", "開燈", "讓...亮", "照亮"]
+        verbs_off = ["關掉", "關", "關一下", "關閉", "停掉"] + ["熄滅", "滅掉", "暗掉", "關燈", "弄暗", "滅燈"]
         verb = random.choice(verbs_on if onoff == "on" else verbs_off)
         
         prefix = random.choice(PREFIXES_ZH) if random.random() < 0.35 else ""
@@ -376,8 +380,8 @@ def gen_lights() -> Example:
             f"麻煩{verb}{room_word}{dev_word}好嗎",
         ]
     else:
-        verbs_on = ["turn on", "switch on", "activate", "power on", "hit", "enable", "fire up", "light up", "flip on", "bring up"]
-        verbs_off = ["turn off", "switch off", "kill", "cut", "shut off", "disable", "power down", "extinguish", "flip off", "shut down"]
+        verbs_on = ["turn on", "switch on", "activate", "power on", "hit", "enable", "fire up", "bring up"] + ["light up", "flip on"]
+        verbs_off = ["turn off", "switch off", "kill", "cut", "shut off", "disable", "power down", "shut down"] + ["extinguish", "flip off"]
         verb = random.choice(verbs_on if onoff == "on" else verbs_off)
         
         prefix = random.choice(PREFIXES_EN) if random.random() < 0.35 else ""
@@ -412,7 +416,11 @@ def gen_lights() -> Example:
     
     slots = make_slots(device="light")
     
+    has_strong_verb = (verb in strong_light_verbs_zh) if lang == "zh" else (verb in strong_light_verbs_en)
+    
     if "燈" in phr or "light" in phr.lower() or "lamp" in phr.lower():
+        slots["device"] = "light"
+    elif has_strong_verb:
         slots["device"] = "light"
     elif is_implicit_device_word:
         slots["device"] = None
@@ -499,6 +507,7 @@ def gen_vacuum() -> Example:
     dev_word = get_granular_device("vacuum", lang)
     
     act_type = random.choice(["room", "generic", "dock"])
+    state = None
     
     if act_type == "room":
         if lang == "zh":
@@ -516,7 +525,8 @@ def gen_vacuum() -> Example:
             phrases = ["go home", "return to base", "dock", "charge", "return home"]
             st = f"{dev_word} {random.choice(phrases)}"
             
-        return emit_command("vacuum", "dock", "default", None, make_slots(device="robot_vacuum"), humanize_text(st, lang), 0.90)
+        if random.random() < 0.1: state = "docked"
+        return emit_command("vacuum", "dock", "default", state, make_slots(device="robot_vacuum"), humanize_text(st, lang), 0.90)
 
     else:
         act = random.choice(["start", "stop", "pause"])
@@ -532,10 +542,11 @@ def gen_vacuum() -> Example:
             }
             
         st = f"{dev_word} {random.choice(v_map[act])}" if lang == "en" else f"{dev_word}{random.choice(v_map[act])}"
-        phr = humanize_text(st, lang)
+        if act == "start" and random.random() < 0.1: state = "cleaning"
+        if act == "stop" and random.random() < 0.1: state = "idle"
         
-        return emit_command("vacuum", act, "default", None, make_slots(device="robot_vacuum"), phr, 0.85)
-
+        return emit_command("vacuum", act, "default", state, make_slots(device="robot_vacuum"), humanize_text(st, lang), 0.85)
+    
 def gen_timer() -> Example:
     lang = "zh" if random.random() < 0.5 else "en"
     
@@ -859,12 +870,14 @@ def gen_transcript() -> Example:
     
     hard_negatives_zh = [
         "我想買一台新車", "股市今天跌了", "比特幣現在多少錢", "我要買車",
-        "這輛車多少錢", "開車去上班", "公車來了嗎", "叫計程車"
+        "這輛車多少錢", "開車去上班", "公車來了嗎", 
+        "叫計程車", "要叫計程車", "幫我叫計程車", "我想叫計程車" 
     ]
     hard_negatives_en = [
         "I want to buy a new car", "I don't agree with you", "That's impossible",
         "What time is it", "How tall is Mount Everest", "Who is the president",
-        "I want to purchase a vehicle", "Buy a tesla", "Call an uber", "Taxi please"
+        "I want to purchase a vehicle", "Buy a tesla", "Get me a car",
+        "Call an uber", "Taxi please", "Call a taxi", "I want to call a taxi"
     ]
 
     if lang == "zh":
