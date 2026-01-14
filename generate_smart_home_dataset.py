@@ -338,17 +338,32 @@ def gen_lights() -> Example:
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
     dev_word = get_granular_device("light", lang)
     
-    is_implicit_device_word = False
-
-    if random.random() < 0.50:
-        dev_word = "它" if lang == "zh" else "it"
-        is_implicit_device_word = True
+    if random.random() < 0.15:
+        situation = random.choice(["dark", "bright"])
+        if situation == "dark":
+            onoff = "on"
+            action = "turn_on"
+            if lang == "zh":
+                phrases = ["這裡太暗了", "我看不到路", "黑漆漆的", "有點暗", "甚麼都看不到"]
+            else:
+                phrases = ["it's too dark in here", "I can't see anything", "it is pitch black", "it's a bit dim"]
+        else:
+            onoff = "off"
+            action = "turn_off"
+            if lang == "zh":
+                phrases = ["太亮了", "眼睛好刺眼", "我想睡覺了", "光線太強"]
+            else:
+                phrases = ["it's too bright", "the light is hurting my eyes", "I'm going to sleep", "too much glare"]
+        
+        st = random.choice(phrases)
+        phr = humanize_text(st, lang)
+        final_target = norm_target if room_word in st else "default"
+        
+        slots = make_slots(device="light")
+        return emit_command("lights", action, final_target, onoff, slots, phr, 0.85)
 
     onoff = random.choice(["on", "off"])
     action = "turn_on" if onoff == "on" else "turn_off"
-
-    strong_verbs_zh = ["亮起來", "點亮", "弄亮", "照亮", "熄滅", "滅掉", "弄暗", "滅燈"]
-    strong_verbs_en = ["illuminate", "brighten", "dim", "extinguish", "light up"]
 
     if lang == "zh":
         verbs_on = ["打開", "開", "開一下", "開啟", "啟動"] + ["亮起來", "點亮", "點開", "弄亮", "開燈", "讓...亮", "照亮"]
@@ -417,15 +432,6 @@ def gen_lights() -> Example:
     
     slots = make_slots(device="light")
     
-    has_strong_verb = (verb in strong_verbs_zh) if lang == "zh" else (verb in strong_verbs_en)
-
-    if "燈" in phr or "light" in phr.lower() or "lamp" in phr.lower():
-        slots["device"] = "light"
-    elif has_strong_verb:
-        slots["device"] = "light" 
-    elif is_implicit_device_word:
-        slots["device"] = None
-    
     return emit_command("lights", action, final_target, onoff, slots, phr, 0.92)
 
 def gen_climate() -> Example:
@@ -433,8 +439,43 @@ def gen_climate() -> Example:
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
     dev_word = get_granular_device("ac", lang)
 
-    mode = random.choice(["set_temp", "set_temp", "onoff", "adjust"])
+    if random.random() < 0.20:
+        feeling = random.choice(["hot", "cold"])
+        
+        if feeling == "hot":
+            target_temp = random.randint(18, 23)
+            if lang == "zh":
+                phrases = [
+                    f"我覺得好熱", f"{room_word}像烤箱一樣", "這裡太悶了", "快熱死了",
+                    "幫我降溫", "太熱了"
+                ]
+            else:
+                phrases = [
+                    "I am burning up", "It's boiling in here", "It is too hot", 
+                    "I'm sweating", "cool this room down", "it feels like an oven"
+                ]
+        else:
+            target_temp = random.randint(26, 29)
+            if lang == "zh":
+                phrases = [
+                    f"我覺得好冷", "這裡像冰庫", "快凍僵了", "太冷了", 
+                    "幫我弄暖和一點", "這裡好涼"
+                ]
+            else:
+                phrases = [
+                    "I am freezing", "It's freezing in here", "It is too cold", 
+                    "my hands are numb", "warm this place up", "it's chilly"
+                ]
+        
+        st = random.choice(phrases)
+        phr = humanize_text(st, lang)
+        final_target = norm_target if room_word in st else "default"
+        
+        slots = make_slots(device="thermostat", value=str(target_temp), unit="celsius", mode="setpoint")
+        return emit_command("climate", "set_temperature", final_target, None, slots, phr, 0.85)
 
+    mode = random.choice(["set_temp", "set_temp", "onoff", "adjust"])
+    
     is_implicit_device_word = False
     if mode in ["set_temp", "adjust"] and random.random() < 0.35:
         dev_word = "它" if lang == "zh" else "it"
@@ -443,7 +484,7 @@ def gen_climate() -> Example:
     slots = make_slots(device="thermostat")
 
     def finalize_device_slot(phrase):
-        if "ac" in phrase.lower() or "thermostat" in phrase.lower() or "冷氣" in phrase or "空調" in phrase:
+        if any(x in phrase.lower() for x in ["ac", "thermostat", "冷氣", "空調", "temp", "溫度"]):
             return "thermostat"
         if is_implicit_device_word and mode in ["set_temp", "adjust"]:
             return "thermostat"
@@ -526,6 +567,25 @@ def gen_vacuum() -> Example:
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
     dev_word = get_granular_device("vacuum", lang)
     
+    if random.random() < 0.20:
+        if lang == "zh":
+            problems = [
+                f"{room_word}地板很髒", "地上都是灰塵", "幫我清理一下地板", 
+                "這裡好多屑屑", "地上太亂了", "地板需要吸一下"
+            ]
+        else:
+            problems = [
+                f"the {room_word} floor is dirty", "there is dust everywhere", 
+                "it's a bit messy on the floor", "I spilled some crumbs",
+                "the floor needs cleaning", "can you clean up the ground"
+            ]
+        
+        st = random.choice(problems)
+        phr = humanize_text(st, lang)
+        return emit_command("vacuum", "start", norm_target, None, 
+                          make_slots(device="robot_vacuum", mode="room", value=norm_target), 
+                          phr, 0.90)
+
     act_type = random.choice(["room", "generic", "dock"])
     state = None
     
@@ -666,6 +726,9 @@ def gen_fan() -> Example:
     dev_word = get_granular_device("fan", lang)
     
     action_type = random.choice(["onoff", "speed"])
+    
+    if action_type == "speed" and random.random() < 0.35:
+        dev_word = "它" if lang == "zh" else "it"
     
     if action_type == "speed":
         speed = random.choice([1, 2, 3, "low", "medium", "high", "max"])
