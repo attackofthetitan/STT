@@ -450,7 +450,6 @@ def gen_lights() -> Example:
     apply_device_rule(slots, "light", phr)
     return emit_command("lights", action, final_target, onoff, slots, phr, 0.95)
 
-
 def gen_climate() -> Example:
     base_room = pick_room()
     room_word, norm_target, lang = pick_room_word_and_target(base_room)
@@ -475,17 +474,20 @@ def gen_climate() -> Example:
 
         phr = humanize_text(random.choice(phrases), lang)
         slots = make_slots()
+        slots["mode"] = "relative"
+        slots["value"] = None
+        slots["unit"] = "celsius"
         apply_device_rule(slots, "thermostat", phr)
         return emit_command("climate", "adjust_temperature", "default", None, slots, phr, 0.90)
 
     mode = random.choice(["set_temp", "set_temp", "onoff", "adjust"])
-    slots = make_slots()
 
     if mode == "set_temp":
         temp = random.randint(16, 30)
+        slots = make_slots()
+
         if lang == "zh":
             t_str = to_zh_count(temp) if random.random() < 0.4 else str(temp)
-
             if explicit_device:
                 structures = [
                     f"{room_word}{dev_word}調到{t_str}度",
@@ -525,45 +527,92 @@ def gen_climate() -> Example:
         return emit_command("climate", "set_temperature", final_target, None, slots, phr, 0.95)
 
     if mode == "adjust":
-        delta = random.choice([-3, -2, -1, 1, 2, 3])
+        slots = make_slots()
+        explicit_amount = (random.random() < 0.60)
+
+        if explicit_amount:
+            delta = random.choice([-3, -2, -1, 1, 2, 3])
+            amt = abs(delta)
+
+            if lang == "zh":
+                if explicit_device:
+                    structures = [
+                        f"{room_word}{dev_word}調{'高' if delta > 0 else '低'}{amt}度",
+                        f"把{dev_word}{'升溫' if delta > 0 else '降溫'}{amt}度",
+                    ]
+                else:
+                    structures = [
+                        f"{'升溫' if delta > 0 else '降溫'}{amt}度",
+                        f"溫度{'上調' if delta > 0 else '下調'}{amt}度",
+                        f"把溫度調{'高' if delta > 0 else '低'}{amt}度",
+                    ]
+            else:
+                if explicit_device:
+                    structures = [
+                        f"adjust the {dev_word} by {delta} degrees",
+                        f"make the {room_word} {amt} degrees {'warmer' if delta > 0 else 'cooler'} with the {dev_word}",
+                    ]
+                else:
+                    structures = [
+                        f"adjust temperature by {delta} degrees",
+                        f"turn it {amt} degrees {'up' if delta > 0 else 'down'}",
+                        f"make it {amt} degrees {'warmer' if delta > 0 else 'cooler'}",
+                    ]
+
+            st = random.choice(structures)
+            phr = humanize_text(st, lang)
+            final_target = norm_target if room_word in st else "default"
+
+            slots["value"] = str(delta)
+            slots["unit"] = "celsius"
+            slots["mode"] = "relative"
+            apply_device_rule(slots, "thermostat", phr)
+            return emit_command("climate", "adjust_temperature", final_target, None, slots, phr, 0.95)
 
         if lang == "zh":
             if explicit_device:
                 structures = [
-                    f"{room_word}{dev_word}調{'高' if delta > 0 else '低'}{abs(delta)}度",
-                    f"把{dev_word}{'升溫' if delta > 0 else '降溫'}{abs(delta)}度",
+                    f"{room_word}{dev_word}再{'熱' if random.random() < 0.5 else '冷'}一點",
+                    f"把{dev_word}{'升溫' if random.random() < 0.5 else '降溫'}一點",
                 ]
             else:
                 structures = [
-                    f"{'升溫' if delta > 0 else '降溫'}{abs(delta)}度",
-                    f"再{'熱' if delta > 0 else '冷'}一點",
-                    f"溫度{'上調' if delta > 0 else '下調'}{abs(delta)}度",
+                    f"再{'熱' if random.random() < 0.5 else '冷'}一點",
+                    "溫度調高一點",
+                    "溫度調低一點",
+                    "幫我升溫一下",
+                    "幫我降溫一下",
                 ]
         else:
             if explicit_device:
                 structures = [
-                    f"adjust the {dev_word} by {delta} degrees",
-                    f"make the {room_word} {abs(delta)} degrees {'warmer' if delta > 0 else 'cooler'} with the {dev_word}",
+                    f"make the {dev_word} a bit {'warmer' if random.random() < 0.5 else 'cooler'}",
+                    f"turn the {dev_word} {'up' if random.random() < 0.5 else 'down'} a bit",
                 ]
             else:
                 structures = [
-                    f"make it {abs(delta)} degrees {'warmer' if delta > 0 else 'cooler'}",
-                    f"adjust temperature by {delta} degrees",
-                    f"turn it {abs(delta)} degrees {'up' if delta > 0 else 'down'}",
+                    "make it a bit warmer",
+                    "make it a bit cooler",
+                    "turn the temperature up a bit",
+                    "turn the temperature down a bit",
+                    "warm it up a little",
+                    "cool it down a little",
                 ]
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
 
-        slots["value"] = str(delta)
+        slots["value"] = None
         slots["unit"] = "celsius"
         slots["mode"] = "relative"
         apply_device_rule(slots, "thermostat", phr)
-        return emit_command("climate", "adjust_temperature", final_target, None, slots, phr, 0.95)
+        return emit_command("climate", "adjust_temperature", final_target, None, slots, phr, 0.94)
 
     onoff = random.choice(["on", "off"])
     action = "turn_on" if onoff == "on" else "turn_off"
+
+    slots = make_slots()
 
     if lang == "zh":
         verb = random.choice(["打開", "開", "啟動"]) if onoff == "on" else random.choice(["關掉", "關", "停掉"])
@@ -580,6 +629,7 @@ def gen_climate() -> Example:
 
     phr = humanize_text(st, lang)
     final_target = norm_target if room_word in st else "default"
+
     apply_device_rule(slots, "thermostat", phr)
     return emit_command("climate", action, final_target, onoff, slots, phr, 0.95)
 
@@ -766,88 +816,89 @@ def gen_fan() -> Example:
     explicit_device = (random.random() < 0.35)
     dev_word = get_granular_device("fan", lang) if explicit_device else ("它" if lang == "zh" else "it")
 
-    action_type = random.choice(["onoff", "speed", "speed", "speed"])
+    dev_word_en = dev_word
+    if lang == "en" and explicit_device and "fan" in dev_word_en.lower():
+        pass
+
+    action_type = random.choice(["onoff", "speed", "speed"])
 
     if action_type == "speed":
-        rel = random.choice(["up", "down", "set"])
+        explicit_magnitude = (random.random() < 0.35)
+
+        direction = random.choice(["up", "down"])
+        sign = 1 if direction == "up" else -1
+
+        mag = random.choice([2, 3]) if explicit_magnitude else None
+        delta = (sign * mag) if mag is not None else None
+
         slots = make_slots()
-
-        if rel == "set":
-            speed = random.choice([1, 2, 3, "low", "medium", "high", "max"])
-            if lang == "zh":
-                speed_map = {1: "一檔", 2: "二檔", 3: "三檔", "low": "低速", "medium": "中速", "high": "高速", "max": "最強"}
-                s_str = speed_map.get(speed, str(speed))
-                if explicit_device:
-                    structures = [
-                        f"{room_word}{dev_word}調到{s_str}",
-                        f"把{dev_word}開到{s_str}",
-                    ]
-                else:
-                    structures = [
-                        f"風速調到{s_str}",
-                        f"調到{s_str}",
-                        f"開到{s_str}",
-                    ]
-            else:
-                if explicit_device:
-                    structures = [
-                        f"set the {room_word} {dev_word} to {speed}",
-                        f"set {dev_word} speed to {speed}",
-                    ]
-                else:
-                    structures = [
-                        f"set speed to {speed}",
-                        f"make it {speed}",
-                        f"turn it to {speed}",
-                    ]
-
-            st = random.choice(structures)
-            phr = humanize_text(st, lang)
-            final_target = norm_target if room_word in st else "default"
-
-            slots["value"] = str(speed)
-            slots["mode"] = "absolute"
-            apply_device_rule(slots, "fan", phr)
-            return emit_command("fan", "set_speed", final_target, None, slots, phr, 0.95)
-
-        delta = random.choice([1, 2]) * (1 if rel == "up" else -1)
+        slots["mode"] = "relative"
+        slots["value"] = (str(delta) if delta is not None else None)
 
         if lang == "zh":
-            if explicit_device:
-                structures = [
-                    f"{room_word}{dev_word}調{'快' if delta > 0 else '慢'}一點",
-                    f"把{dev_word}{'加強' if delta > 0 else '調弱'}",
-                ]
+            if explicit_magnitude:
+                mag_str = to_zh_count(mag) if random.random() < 0.5 else str(mag)
+                if explicit_device:
+                    structures = [
+                        f"{room_word}{dev_word}風速調{'高' if sign > 0 else '低'}{mag_str}檔",
+                        f"把{dev_word}調{'快' if sign > 0 else '慢'}{mag_str}檔",
+                    ]
+                else:
+                    structures = [
+                        f"{room_word}風速調{'高' if sign > 0 else '低'}{mag_str}檔",
+                        f"風速調{'高' if sign > 0 else '低'}{mag_str}檔",
+                        f"{'加強' if sign > 0 else '調弱'}{mag_str}檔",
+                    ]
             else:
-                structures = [
-                    f"風速{'加快' if delta > 0 else '放慢'}一點",
-                    f"再{'大' if delta > 0 else '小'}一點",
-                    f"{'加強' if delta > 0 else '調弱'}一點",
-                ]
+                if explicit_device:
+                    structures = [
+                        f"{room_word}{dev_word}調{'快' if sign > 0 else '慢'}一點",
+                        f"{room_word}{dev_word}風速{'加快' if sign > 0 else '放慢'}一點",
+                    ]
+                else:
+                    structures = [
+                        f"{room_word}風速{'加快' if sign > 0 else '放慢'}一點",
+                        f"風速{'加快' if sign > 0 else '放慢'}一點",
+                        "再快一點" if sign > 0 else "再慢一點",
+                        "吹大一點" if sign > 0 else "吹小一點",
+                    ]
+
         else:
-            if explicit_device:
-                structures = [
-                    f"make the {dev_word} {'faster' if delta > 0 else 'slower'}",
-                    f"turn the {room_word} {dev_word} {'up' if delta > 0 else 'down'}",
-                ]
+            if explicit_magnitude:
+                mag_str = str(mag) if random.random() < 0.6 else ("two" if mag == 2 else "three")
+                if explicit_device:
+                    structures = [
+                        f"turn the {room_word} {dev_word_en} {'up' if sign > 0 else 'down'} by {mag_str}",
+                        f"adjust {dev_word_en} speed {'up' if sign > 0 else 'down'} by {mag_str}",
+                    ]
+                else:
+                    structures = [
+                        f"increase airflow speed by {mag_str}" if sign > 0 else f"decrease airflow speed by {mag_str}",
+                        f"turn airflow {'up' if sign > 0 else 'down'} by {mag_str}",
+                    ]
             else:
-                structures = [
-                    f"turn it {'up' if delta > 0 else 'down'}",
-                    f"make it {'faster' if delta > 0 else 'slower'}",
-                    f"increase speed" if delta > 0 else "decrease speed",
-                ]
+                if explicit_device:
+                    structures = [
+                        f"turn the {room_word} {dev_word_en} {'up' if sign > 0 else 'down'}",
+                        f"make the {dev_word_en} a bit {'stronger' if sign > 0 else 'weaker'}",
+                    ]
+                else:
+                    structures = [
+                        "turn it up" if sign > 0 else "turn it down",
+                        "increase the airflow" if sign > 0 else "decrease the airflow",
+                        "make it stronger" if sign > 0 else "make it weaker",
+                    ]
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
 
-        slots["value"] = str(delta)
-        slots["mode"] = "relative"
         apply_device_rule(slots, "fan", phr)
         return emit_command("fan", "set_speed", final_target, None, slots, phr, 0.95)
-
+    
     onoff = random.choice(["on", "off"])
     action = "turn_on" if onoff == "on" else "turn_off"
+    state = onoff
     slots = make_slots()
 
     if lang == "zh":
@@ -861,18 +912,20 @@ def gen_fan() -> Example:
             structures = [
                 f"{verb}{room_word}{'它' if random.random() < 0.7 else ''}".strip(),
                 f"{verb}{'它' if random.random() < 0.7 else ''}".strip(),
+                "開始通風" if onoff == "on" else "停止通風",
             ]
     else:
         verb = random.choice(["turn on", "switch on"]) if onoff == "on" else random.choice(["turn off", "switch off"])
         if explicit_device:
             structures = [
-                f"{verb} the {room_word} {dev_word}",
-                f"{verb} {dev_word}",
+                f"{verb} the {room_word} {dev_word_en}",
+                f"{verb} {dev_word_en}",
             ]
         else:
             structures = [
                 f"{verb} it",
-                f"{verb} the airflow",
+                "start the airflow" if onoff == "on" else "stop the airflow",
+                f"{verb} the airflow in the {room_word}",
             ]
 
     st = random.choice(structures)
@@ -880,9 +933,7 @@ def gen_fan() -> Example:
     final_target = norm_target if room_word in st else "default"
 
     apply_device_rule(slots, "fan", phr)
-    return emit_command("fan", action, final_target, onoff, slots, phr, 0.95)
-
-
+    return emit_command("fan", action, final_target, state, slots, phr, 0.95)
 
 def gen_media() -> Example:
     base_room = pick_room()
@@ -895,43 +946,49 @@ def gen_media() -> Example:
         dev_word = "它" if lang == "zh" else "it"
 
     action_type = random.choice(["onoff", "volume", "playback", "channel"])
-
     slots = make_slots()
 
     if action_type == "volume":
-        vol = random.choice([10, 20, 30, 40, 50, 60, 70, 80, "up", "down"])
+        numeric = (random.random() < 0.55)
+        vol = random.choice([10, 20, 30, 40, 50, 60, 70, 80])
+        direction = random.choice(["up", "down"])
+
         if lang == "zh":
-            if isinstance(vol, int):
+            if numeric:
                 v_str = to_zh_count(vol) if random.random() < 0.3 else str(vol)
                 structures = [
                     f"{dev_word}音量調到{v_str}",
                     f"音量{v_str}",
                     f"把聲音調成{v_str}",
+                    f"{room_word}{dev_word}音量{v_str}",
                 ]
                 slots["value"] = str(vol)
             else:
-                v_str = "調大" if vol == "up" else "調小"
+                v_str = "調大" if direction == "up" else "調小"
                 structures = [
                     f"{dev_word}{v_str}聲音",
                     f"音量{v_str}",
-                    f"聲音{'大' if vol == 'up' else '小'}聲一點",
+                    f"聲音{'大' if direction == 'up' else '小'}聲一點",
+                    "再大聲一點" if direction == "up" else "再小聲一點",
                 ]
-                slots["value"] = "up" if vol == "up" else "down"
+                slots["value"] = None
         else:
-            if isinstance(vol, int):
+            if numeric:
                 structures = [
                     f"set {dev_word} volume to {vol}",
                     f"volume {vol}",
                     f"make {dev_word} volume {vol}",
+                    f"set the volume to {vol}",
                 ]
                 slots["value"] = str(vol)
             else:
                 structures = [
-                    f"turn the volume {vol}",
-                    f"volume {vol}",
-                    f"{dev_word} volume {vol}",
+                    f"turn the volume {direction}",
+                    f"volume {direction}",
+                    f"{dev_word} volume {direction}",
+                    "make it louder" if direction == "up" else "make it quieter",
                 ]
-                slots["value"] = "up" if vol == "up" else "down"
+                slots["value"] = None
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
@@ -942,17 +999,28 @@ def gen_media() -> Example:
         return emit_command("media", "set_volume", final_target, None, slots, phr, 0.92)
 
     if action_type == "channel":
+        numeric = (random.random() < 0.55)
         ch = random.randint(1, 100)
+
         if lang == "zh":
-            structures = ["換台", f"轉到{ch}台", "切換頻道", "下一台"]
+            if numeric:
+                structures = [f"轉到{ch}台", f"切到{ch}台", f"頻道{ch}", f"切換到{ch}頻道"]
+                slots["value"] = str(ch)
+            else:
+                structures = ["換台", "切換頻道", "下一台", "換頻道", "下一個頻道"]
+                slots["value"] = None
         else:
-            structures = ["change channel", f"channel {ch}", "next channel", "switch channel"]
+            if numeric:
+                structures = [f"channel {ch}", f"go to channel {ch}", f"switch to channel {ch}", f"set channel to {ch}"]
+                slots["value"] = str(ch)
+            else:
+                structures = ["change channel", "next channel", "switch channel", "go to the next channel"]
+                slots["value"] = None 
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
 
-        slots["value"] = str(ch)
         slots["mode"] = "channel"
         apply_device_rule(slots, media_type, phr)
         return emit_command("media", "channel_change", final_target, None, slots, phr, 0.90)
@@ -960,6 +1028,7 @@ def gen_media() -> Example:
     if action_type == "onoff":
         onoff = random.choice(["on", "off"])
         action = "turn_on" if onoff == "on" else "turn_off"
+
         if lang == "zh":
             verb = random.choice(["打開", "開"]) if onoff == "on" else random.choice(["關掉", "關"])
             structures = [f"{verb}{dev_word}", f"{verb}{room_word}的{dev_word}"]
@@ -999,7 +1068,6 @@ def gen_media() -> Example:
 
     apply_device_rule(slots, media_type, phr)
     return emit_command("media", action, final_target, None, slots, phr, 0.90)
-
 
 def gen_transcript() -> Example:
     lang = "zh" if random.random() < 0.5 else "en"
