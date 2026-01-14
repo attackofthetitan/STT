@@ -141,7 +141,7 @@ def device_is_explicit(canonical_device: str, text: str) -> bool:
     return False
 
 def apply_device_rule(slots: Dict[str, Any], canonical_device: str, user_text: str) -> Dict[str, Any]:
-    slots["device"] = canonical_device if device_is_explicit(canonical_device, user_text) else None
+    slots["device"] = canonical_device 
     return slots
 
 
@@ -619,13 +619,13 @@ def gen_climate() -> Example:
         if explicit_device:
             st = f"{verb}{room_word}{dev_word}"
         else:
-            st = f"{verb}{room_word}{'它' if random.random() < 0.7 else ''}".strip()
+            st = f"{verb}{room_word}{'空調' if random.random() < 0.5 else '冷氣'}"
     else:
         verb = random.choice(["turn on", "switch on"]) if onoff == "on" else random.choice(["turn off", "switch off"])
         if explicit_device:
             st = f"{verb} the {room_word} {dev_word}"
         else:
-            st = f"{verb} {('it' if random.random() < 0.7 else 'the temperature')}"
+            st = f"{verb} the {'AC' if random.random() < 0.5 else 'temperature control'}"
 
     phr = humanize_text(st, lang)
     final_target = norm_target if room_word in st else "default"
@@ -1031,7 +1031,7 @@ def gen_media() -> Example:
 
         if lang == "zh":
             verb = random.choice(["打開", "開"]) if onoff == "on" else random.choice(["關掉", "關"])
-            structures = [f"{verb}{dev_word}", f"{verb}{room_word}的{dev_word}"]
+            structures = [f"{verb}{room_word}的{dev_word}", f"{verb}{dev_word}"]
         else:
             verb = "turn on" if onoff == "on" else "turn off"
             structures = [f"{verb} {dev_word}", f"{verb} the {dev_word} in the {room_word}"]
@@ -1073,13 +1073,13 @@ def gen_transcript() -> Example:
     lang = "zh" if random.random() < 0.5 else "en"
     
     broken_cmds_en = [
-        "turn on the", "switch off", "set the", "open the", "can you please",
+        "set the", "can you please",
         "make it", "adjust the", "change the", "volume", "lights in the", 
-        "turn on", "please turn off"
+        "please turn off"
     ]
     broken_cmds_zh = [
-        "打開", "關掉", "設定", "幫我開", "把那個", "音量", "調整",
-        "那個房間的", "可以幫我嗎", "去開", "那個...開"
+        "設定", "幫我開", "把那個", "音量", "調整",
+        "那個房間的", "可以幫我嗎", "那個...開"
     ]
 
     hard_negatives_zh = [
