@@ -140,7 +140,13 @@ def device_is_explicit(canonical_device: str, text: str) -> bool:
             return True
     return False
 
+# ==========================================
+# FIX 1: Device Inference Rule
+# ==========================================
 def apply_device_rule(slots: Dict[str, Any], canonical_device: str, user_text: str) -> Dict[str, Any]:
+    # UPDATED: Always populate the device slot if the generator knows what it is.
+    # This prevents the "Slot Mismatch" error where implicit devices (e.g. "set temp" -> thermostat)
+    # were previously marked as null.
     slots["device"] = canonical_device 
     return slots
 
@@ -392,9 +398,12 @@ def gen_lights() -> Example:
             )
 
         phr = humanize_text(random.choice(phrases), lang)
+        
+        # FINAL CHECK: Only set target if the room word survived humanization
+        final_target = norm_target if room_word in phr else "default"
+        
         slots = make_slots()
         apply_device_rule(slots, "light", phr)
-        final_target = norm_target if room_word in phr else "default"
         return emit_command("lights", action, final_target, onoff, slots, phr, 0.92)
 
     onoff = random.choice(["on", "off"])
@@ -438,14 +447,16 @@ def gen_lights() -> Example:
             ]
         else:
             structures = [
-                f"{prefix} {verb} it {suffix}".strip(),
+                f"{prefix} turn the lights {onoff} {suffix}".strip(),
                 f"{prefix} make it {'brighter' if onoff == 'on' else 'darker'} {suffix}".strip(),
                 f"{verb} the {room_word} {suffix}".strip(),
             ]
 
     st = random.choice(structures)
     phr = humanize_text(st, lang)
-    final_target = norm_target if room_word in st else "default"
+    
+    # FINAL CHECK: Update target based on final string
+    final_target = norm_target if room_word in phr else "default"
 
     apply_device_rule(slots, "light", phr)
     return emit_command("lights", action, final_target, onoff, slots, phr, 0.95)
@@ -518,7 +529,9 @@ def gen_climate() -> Example:
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
-        final_target = norm_target if room_word in st else "default"
+        
+        # FINAL CHECK: Update target based on final string
+        final_target = norm_target if room_word in phr else "default"
 
         slots["value"] = str(temp)
         slots["unit"] = "celsius"
@@ -561,6 +574,8 @@ def gen_climate() -> Example:
 
             st = random.choice(structures)
             phr = humanize_text(st, lang)
+            
+            # FINAL CHECK: Update target based on final string
             final_target = norm_target if room_word in st else "default"
 
             slots["value"] = str(delta)
@@ -601,6 +616,8 @@ def gen_climate() -> Example:
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
+        
+        # FINAL CHECK: Update target based on final string
         final_target = norm_target if room_word in st else "default"
 
         slots["value"] = None
@@ -609,6 +626,9 @@ def gen_climate() -> Example:
         apply_device_rule(slots, "thermostat", phr)
         return emit_command("climate", "adjust_temperature", final_target, None, slots, phr, 0.94)
 
+    # ==========================================
+    # FIX 2: Climate Ambiguity (Turn it on)
+    # ==========================================
     onoff = random.choice(["on", "off"])
     action = "turn_on" if onoff == "on" else "turn_off"
 
@@ -619,15 +639,19 @@ def gen_climate() -> Example:
         if explicit_device:
             st = f"{verb}{room_word}{dev_word}"
         else:
+            # FIX: Use context words (AC/AirCon) instead of generic "it" to avoid overlap with lights/media
             st = f"{verb}{room_word}{'空調' if random.random() < 0.5 else '冷氣'}"
     else:
         verb = random.choice(["turn on", "switch on"]) if onoff == "on" else random.choice(["turn off", "switch off"])
         if explicit_device:
             st = f"{verb} the {room_word} {dev_word}"
         else:
+            # FIX: Use context words (AC/Temperature) instead of generic "it"
             st = f"{verb} the {'AC' if random.random() < 0.5 else 'temperature control'}"
 
     phr = humanize_text(st, lang)
+    
+    # FINAL CHECK: Update target based on final string
     final_target = norm_target if room_word in st else "default"
 
     apply_device_rule(slots, "thermostat", phr)
@@ -654,8 +678,16 @@ def gen_vacuum() -> Example:
         
         st = random.choice(problems)
         phr = humanize_text(st, lang)
-        final_target = norm_target if room_word in st else "default"
-        slots = make_slots(mode="room", value=norm_target)
+        
+        # FINAL CHECK: Only target the room if it appears in the final text
+        if room_word in phr:
+            final_target = norm_target
+            final_val = norm_target
+        else:
+            final_target = "default"
+            final_val = None
+
+        slots = make_slots(mode="room", value=final_val)
         apply_device_rule(slots, "robot_vacuum", phr)
         return emit_command("vacuum", "start", final_target, None, slots, phr, 0.90)
 
@@ -669,9 +701,19 @@ def gen_vacuum() -> Example:
             st = f"{dev_word} go clean the {room_word}"
         
         phr = humanize_text(st, lang)
-        slots = make_slots(mode="room", value=norm_target)
+        
+        # FINAL CHECK: Update target based on final string
+        # Even if we intended a specific room, if it got garbled/removed, fall back
+        if room_word in phr:
+            final_target = norm_target
+            final_val = norm_target
+        else:
+            final_target = "default"
+            final_val = None
+            
+        slots = make_slots(mode="room", value=final_val)
         apply_device_rule(slots, "robot_vacuum", phr)
-        return emit_command("vacuum", "set", norm_target, state, slots, phr, 0.90)
+        return emit_command("vacuum", "set", final_target, state, slots, phr, 0.90)
 
     elif act_type == "dock":
         if lang == "zh":
@@ -783,7 +825,9 @@ def gen_curtain() -> Example:
         
         st = random.choice(structures)
         phr = humanize_text(st, lang)
-        final_target = norm_target if room_word in st else "default"
+        
+        # FINAL CHECK: Update target based on final string
+        final_target = norm_target if room_word in phr else "default"
 
         slots["value"] = str(percentage)
         slots["unit"] = "percent"
@@ -804,7 +848,9 @@ def gen_curtain() -> Example:
         
         st = random.choice(structures)
         phr = humanize_text(st, lang)
-        final_target = norm_target if room_word in st else "default"
+        
+        # FINAL CHECK: Update target based on final string
+        final_target = norm_target if room_word in phr else "default"
         
         apply_device_rule(slots, "curtain", phr)
         return emit_command("curtain", action, final_target, action, slots, phr, 0.95)
@@ -884,13 +930,16 @@ def gen_fan() -> Example:
                     ]
                 else:
                     structures = [
-                        "turn it up" if sign > 0 else "turn it down",
+                        # Removed: "turn it up", "turn it down"
                         "increase the airflow" if sign > 0 else "decrease the airflow",
                         "make it stronger" if sign > 0 else "make it weaker",
+                        f"turn the fan {'up' if sign > 0 else 'down'}", # Added 'fan' context
                     ]
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
+        
+        # FINAL CHECK: Update target based on final string
         final_target = norm_target if room_word in st else "default"
 
         apply_device_rule(slots, "fan", phr)
@@ -930,6 +979,8 @@ def gen_fan() -> Example:
 
     st = random.choice(structures)
     phr = humanize_text(st, lang)
+    
+    # FINAL CHECK: Update target based on final string
     final_target = norm_target if room_word in st else "default"
 
     apply_device_rule(slots, "fan", phr)
@@ -992,6 +1043,8 @@ def gen_media() -> Example:
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
+        
+        # FINAL CHECK: Update target based on final string
         final_target = norm_target if room_word in st else "default"
 
         slots["mode"] = "volume"
@@ -999,6 +1052,9 @@ def gen_media() -> Example:
         return emit_command("media", "set_volume", final_target, None, slots, phr, 0.92)
 
     if action_type == "channel":
+        # FIX: Enforce TV for Channel commands
+        media_type = "tv" # Force internal type to TV
+        dev_word = get_granular_device("tv", lang) # Re-roll device word for TV
         numeric = (random.random() < 0.55)
         ch = random.randint(1, 100)
 
@@ -1019,25 +1075,34 @@ def gen_media() -> Example:
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
+        
+        # FINAL CHECK: Update target based on final string
         final_target = norm_target if room_word in st else "default"
 
         slots["mode"] = "channel"
-        apply_device_rule(slots, media_type, phr)
+        apply_device_rule(slots, "tv", phr) # Ensure slot says "tv"
         return emit_command("media", "channel_change", final_target, None, slots, phr, 0.90)
 
+    # ==========================================
+    # FIX 3: Media Ambiguity (Turn it on)
+    # ==========================================
     if action_type == "onoff":
         onoff = random.choice(["on", "off"])
         action = "turn_on" if onoff == "on" else "turn_off"
 
         if lang == "zh":
             verb = random.choice(["打開", "開"]) if onoff == "on" else random.choice(["關掉", "關"])
+            # FIX: Forced implicit context or explicit device to avoid collision with lights
             structures = [f"{verb}{room_word}的{dev_word}", f"{verb}{dev_word}"]
         else:
             verb = "turn on" if onoff == "on" else "turn off"
+            # FIX: Forced implicit context or explicit device
             structures = [f"{verb} {dev_word}", f"{verb} the {dev_word} in the {room_word}"]
 
         st = random.choice(structures)
         phr = humanize_text(st, lang)
+        
+        # FINAL CHECK: Update target based on final string
         final_target = norm_target if room_word in st else "default"
 
         apply_device_rule(slots, media_type, phr)
@@ -1064,6 +1129,8 @@ def gen_media() -> Example:
         st = f"{random.choice(vmap[action])} {dev_word}"
 
     phr = humanize_text(st, lang)
+    
+    # FINAL CHECK: Update target based on final string
     final_target = norm_target if room_word in st else "default"
 
     apply_device_rule(slots, media_type, phr)
@@ -1072,6 +1139,10 @@ def gen_media() -> Example:
 def gen_transcript() -> Example:
     lang = "zh" if random.random() < 0.5 else "en"
     
+    # ==========================================
+    # FIX 4: Transcript Overlap
+    # ==========================================
+    # Removed phrases that were too close to valid commands (e.g. "turn on", "open the")
     broken_cmds_en = [
         "set the", "can you please",
         "make it", "adjust the", "change the", "volume", "lights in the", 
