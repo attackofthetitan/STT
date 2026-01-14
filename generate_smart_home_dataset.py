@@ -443,7 +443,6 @@ def gen_climate() -> Example:
         feeling = random.choice(["hot", "cold"])
         
         if feeling == "hot":
-            target_temp = random.randint(18, 23)
             if lang == "zh":
                 phrases = [
                     f"我覺得好熱", f"{room_word}像烤箱一樣", "這裡太悶了", "快熱死了",
@@ -455,7 +454,6 @@ def gen_climate() -> Example:
                     "I'm sweating", "cool this room down", "it feels like an oven"
                 ]
         else:
-            target_temp = random.randint(26, 29)
             if lang == "zh":
                 phrases = [
                     f"我覺得好冷", "這裡像冰庫", "快凍僵了", "太冷了", 
@@ -471,7 +469,7 @@ def gen_climate() -> Example:
         phr = humanize_text(st, lang)
         final_target = norm_target if room_word in st else "default"
         
-        slots = make_slots(device="thermostat", value=str(target_temp), unit="celsius", mode="setpoint")
+        slots = make_slots(device="thermostat")
         return emit_command("climate", "set_temperature", final_target, None, slots, phr, 0.85)
 
     mode = random.choice(["set_temp", "set_temp", "onoff", "adjust"])
