@@ -34,7 +34,7 @@ ROOMS = [r for r in CANONICAL_TARGETS if r != "default"]
 ROOM_ALIASES_ZH = {
     "bathroom": ["廁所", "浴室", "洗手間", "茅房", "盥洗室", "衛浴間"],
     "kitchen": ["廚房", "灶咖", "煮飯的地方", "烹飪區", "料理台"],
-    "bedroom": ["臥室", "主臥", "寢室", "主臥室", "睡房", "臥房"],  # Removed "房間" - too ambiguous
+    "bedroom": ["臥室", "主臥", "寢室", "主臥室", "睡房", "臥房"],
     "living_room": ["客廳", "起居室", "休憩區", "沙發區", "會客室"],
     "dining_room": ["餐廳", "飯廳", "吃飯的地方", "用餐區"],
     "study": ["書房", "辦公室", "工作區", "電腦房"],
@@ -283,7 +283,7 @@ def apply_code_switching(text: str, main_lang: str) -> str:
     return text
 
 def inject_hesitation_and_correction(text: str, lang: str) -> str:
-    if random.random() > 0.30:  # Increased from 0.15 for better correction coverage
+    if random.random() > 0.15:
         return text
     corrections = CORRECTIONS_ZH if lang == "zh" else CORRECTIONS_EN
     fake_actions = ["關掉", "打開", "設定"] if lang == "zh" else ["Turn off", "Open", "Set"]
@@ -851,172 +851,33 @@ def gen_hard_negative() -> Example:
     
     dev_type = random.choice(["light", "ac", "tv", "vacuum", "fan", "curtain"])
     dev_word = get_granular_device(dev_type, lang)
-    room = random.choice(ROOMS)
-    room_word = pick_room_word(room, lang)
     
     if lang == "zh":
-        # Questions about devices
-        questions = [
+        templates = [
             f"這個{dev_word}好用嗎？",
             f"你覺得{dev_word}怎麼樣？",
             f"{dev_word}要多少錢？",
-            f"{room_word}的{dev_word}是什麼牌子？",
-            f"這台{dev_word}保固多久？",
-            f"{dev_word}耗電嗎？",
-            f"哪裡可以買到這種{dev_word}？",
-            f"{dev_word}怎麼清潔？",
-            f"這{dev_word}有遙控器嗎？",
-            f"{dev_word}可以連WiFi嗎？",
-        ]
-        
-        # Past tense / Completed actions (not requests)
-        past_tense = [
             f"我昨天買了一個新的{dev_word}",
-            f"我已經關掉{room_word}的{dev_word}了",
-            f"我剛剛開過{dev_word}",
-            f"我上週修好了{dev_word}",
-            f"{dev_word}昨天自己關掉了",
-            f"我把舊的{dev_word}丟了",
-            f"安裝師傅剛裝好{dev_word}",
-            f"我忘記我有沒有關{dev_word}",
-        ]
-        
-        # Statements about device state (observations, not commands)
-        observations = [
             f"{dev_word}好像壞了",
-            f"{room_word}的{dev_word}不會動",
-            f"這台{dev_word}已經用了三年",
-            f"{dev_word}發出怪聲",
-            f"{dev_word}閃爍不停",
-            f"這個{dev_word}好吵",
-            f"{dev_word}需要換了",
-            f"{room_word}的{dev_word}沒反應",
-            f"{dev_word}好像沒電了",
-            f"這{dev_word}該保養了",
-        ]
-        
-        # Third person / Reported speech
-        third_person = [
             f"爸爸說他忘記關{dev_word}了",
-            f"媽媽叫我去關{dev_word}",
-            f"老公說{dev_word}壞了",
-            f"小孩把{dev_word}打開了",
-            f"隔壁的{dev_word}好吵",
-            f"誰買了新的{dev_word}？",
-            f"誰開的{dev_word}？",
-            f"他們家的{dev_word}很高級",
-        ]
-        
-        # Wishes / Hypotheticals
-        hypotheticals = [
             f"我希望我家也有{dev_word}",
             f"如果不關{dev_word}電費會很貴",
-            f"要是{dev_word}會自動關就好了",
-            f"如果{dev_word}壞了怎麼辦",
-            f"我在考慮買新的{dev_word}",
-            f"應該要換一台{dev_word}",
-            f"不知道該不該修{dev_word}",
-            f"我想要智慧型的{dev_word}",
+            f"這台{dev_word}已經用了三年",
+            f"誰買了新的{dev_word}？",
         ]
-        
-        # Questions that look like commands but aren't
-        tricky_questions = [
-            f"你有關{dev_word}嗎？",
-            f"{dev_word}開著嗎？",
-            f"誰去開一下{dev_word}好嗎？",
-            f"可以請別人關{dev_word}嗎？",
-            f"需要開{dev_word}嗎？",
-            f"要不要關{dev_word}？",
-            f"{room_word}的{dev_word}是不是開著？",
-            # Add patterns with adjectives (like 角落掃地機)
-            f"角落的{dev_word}開著嗎？",
-            f"那邊的{dev_word}是開的嗎？",
-            f"新買的{dev_word}好用嗎？",
-            f"舊的{dev_word}還能用嗎？",
-            f"智慧{dev_word}連線了嗎？",
-            f"主臥的{dev_word}有開嗎？",
-        ]
-        
-        templates = questions + past_tense + observations + third_person + hypotheticals + tricky_questions
-        
     else:
-        # Questions about devices
-        questions = [
+        templates = [
             f"Is this {dev_word} good?",
             f"What do you think about the {dev_word}?",
             f"How much does a {dev_word} cost?",
-            f"What brand is the {room_word} {dev_word}?",
-            f"How long is the warranty on this {dev_word}?",
-            f"Does the {dev_word} use a lot of electricity?",
-            f"Where can I buy this {dev_word}?",
-            f"How do you clean the {dev_word}?",
-            f"Does this {dev_word} have a remote?",
-            f"Can the {dev_word} connect to WiFi?",
-        ]
-        
-        # Past tense / Completed actions
-        past_tense = [
             f"I bought a new {dev_word} yesterday",
-            f"I already turned off the {room_word} {dev_word}",
-            f"I just turned on the {dev_word} earlier",
-            f"I fixed the {dev_word} last week",
-            f"The {dev_word} turned off by itself yesterday",
-            f"I threw away the old {dev_word}",
-            f"The installer just set up the {dev_word}",
-            f"I forgot if I turned off the {dev_word}",
-        ]
-        
-        # Statements about device state
-        observations = [
             f"The {dev_word} seems broken",
-            f"The {room_word} {dev_word} won't work",
-            f"This {dev_word} is three years old",
-            f"The {dev_word} is making a weird noise",
-            f"The {dev_word} keeps flickering",
-            f"This {dev_word} is so loud",
-            f"The {dev_word} needs to be replaced",
-            f"The {room_word} {dev_word} isn't responding",
-            f"The {dev_word} seems dead",
-            f"This {dev_word} needs maintenance",
-        ]
-        
-        # Third person / Reported speech
-        third_person = [
             f"My dad forgot to turn off the {dev_word}",
-            f"Mom told me to turn off the {dev_word}",
-            f"My husband said the {dev_word} is broken",
-            f"The kids turned on the {dev_word}",
-            f"The neighbor's {dev_word} is so loud",
-            f"Who bought the new {dev_word}?",
-            f"Who turned on the {dev_word}?",
-            f"Their {dev_word} is so fancy",
-        ]
-        
-        # Wishes / Hypotheticals
-        hypotheticals = [
             f"I wish I had a smart {dev_word}",
-            f"If we don't turn off the {dev_word} the bill will be high",
-            f"I wish the {dev_word} would turn off automatically",
-            f"What if the {dev_word} breaks",
-            f"I'm thinking about getting a new {dev_word}",
-            f"We should probably replace the {dev_word}",
-            f"Not sure if we should fix the {dev_word}",
-            f"I want a smart {dev_word}",
-        ]
-        
-        # Tricky questions that look like commands
-        tricky_questions = [
-            f"Did you turn off the {dev_word}?",
-            f"Is the {dev_word} on?",
-            f"Can someone else turn on the {dev_word}?",
-            f"Could you ask someone to close the {dev_word}?",
-            f"Do we need to turn on the {dev_word}?",
-            f"Should we turn off the {dev_word}?",
-            f"Is the {room_word} {dev_word} still on?",
             f"Did you leave the {dev_word} on?",
+            f"This {dev_word} is three years old",
+            f"Who bought the new {dev_word}?",
         ]
-        
-        templates = questions + past_tense + observations + third_person + hypotheticals + tricky_questions
         
     text = random.choice(templates)
     
@@ -1033,352 +894,26 @@ def gen_hard_negative() -> Example:
 
 
 def gen_transcript() -> Example:
-    """Generate non-command transcripts with high variety."""
+    """Generate non-command transcripts."""
     lang = "zh" if random.random() < 0.5 else "en"
     
     if lang == "zh":
-        # Greetings & Social
-        greetings = [
-            "你好嗎", "哈囉", "早安", "晚安", "午安", "嗨", "掰掰", "再見",
-            "好久不見", "最近怎麼樣", "吃飽了嗎", "你好", "大家好",
+        texts = [
+            "你好嗎", "今天天氣真好", "我等等要出門", "告訴我一個笑話",
+            "現在幾點了", "明天會下雨嗎", "哈囉", "有人在嗎", "測試測試",
+            "我想買一台新車", "股市今天跌了", "幫我叫計程車", "早安", "晚安",
         ]
-        
-        # Questions (non-device related)
-        questions = [
-            "現在幾點了", "明天會下雨嗎", "今天星期幾", "外面幾度",
-            "等等要不要出去", "晚餐吃什麼", "你覺得呢", "這樣可以嗎",
-            "有人在嗎", "誰在家", "小孩睡了嗎", "爸媽回來了嗎",
-            "功課寫完了嗎", "垃圾車來了嗎", "快遞到了嗎", "門鈴是誰",
-        ]
-        
-        # Statements & Observations
-        statements = [
-            "今天天氣真好", "好熱喔", "好冷喔", "下雨了", "出太陽了",
-            "我等等要出門", "我回來了", "我出門了", "我在忙", "我在睡覺",
-            "股市今天跌了", "塞車塞好久", "好累喔", "肚子好餓",
-            "今天上班好忙", "作業好多", "考試考完了", "放假了",
-        ]
-        
-        # Requests (non-smart home)
-        requests = [
-            "告訴我一個笑話", "幫我叫計程車", "幫我訂餐廳", "幫我查路線",
-            "幫我翻譯這個", "幫我算一下", "幫我記住這個", "提醒我一下",
-            "播放音樂", "唱首歌", "說個故事", "念新聞給我聽",
-        ]
-        
-        # Thinking aloud / Filler
-        filler = [
-            "測試測試", "嗯...", "讓我想想", "等一下喔", "稍等",
-            "我想想看", "怎麼說呢", "話說", "對了", "啊", "喔",
-            "算了", "沒事", "好吧", "隨便", "都可以",
-        ]
-        
-        # Life events / Stories
-        life = [
-            "我昨天買了新衣服", "我剛下班", "我要去接小孩", "我在等公車",
-            "明天要開會", "這週末要出遊", "我在想晚餐", "我忘記帶鑰匙",
-            "手機快沒電了", "我找不到錢包", "我迷路了", "我到了",
-            "我想買一台新車", "我在考慮換工作", "我要去運動", "我在追劇",
-        ]
-        
-        # Expressions / Emotions
-        emotions = [
-            "太棒了", "好煩喔", "怎麼辦", "糟糕", "完蛋了", "太好了",
-            "不會吧", "真的假的", "傻眼", "無言", "好笑", "好可愛",
-            "好厲害", "太扯了", "受不了", "好感動", "好期待", "緊張",
-        ]
-        
-        # Commands to other services (not smart home)
-        other_services = [
-            "導航到最近的加油站", "搜尋附近的餐廳", "打電話給媽媽",
-            "傳訊息給老公", "查一下明天的行程", "新增一個備忘錄",
-            "翻譯成英文", "今天的新聞", "股票漲了沒", "匯率多少",
-        ]
-        
-        # Numbers / Random utterances
-        random_utterances = [
-            "一二三四五", "ABCD", "測試一二三", "喂喂喂", "哈哈哈",
-            "啦啦啦", "唔...", "蛤", "什麼", "真的嗎",
-        ]
-        
-        all_texts = (greetings + questions + statements + requests + 
-                     filler + life + emotions + other_services + random_utterances)
-        
     else:
-        # Greetings & Social
-        greetings = [
-            "Hello there", "Hey", "Hi", "Good morning", "Good night", "Good evening",
-            "Goodbye", "See you later", "What's up", "How are you", "How's it going",
-            "Long time no see", "Nice to meet you", "Take care", "Have a good day",
+        texts = [
+            "Hello there", "How are you", "What is the meaning of life",
+            "Tell me a joke", "I am going out later", "What time is it",
+            "Will it rain tomorrow", "Testing testing", "Anyone there",
+            "I want to buy a car", "Call a taxi", "Good morning", "Good night",
         ]
-        
-        # Questions (non-device related)
-        questions = [
-            "What time is it", "Will it rain tomorrow", "What day is it",
-            "What's the weather like", "What should we have for dinner",
-            "Anyone there", "Who's home", "Are the kids asleep", "Did mom call",
-            "Is the mail here", "Did the package arrive", "Who's at the door",
-            "What do you think", "Is that okay", "Does that work for you",
-            "Where are my keys", "Have you seen my phone", "What was I saying",
-        ]
-        
-        # Statements & Observations
-        statements = [
-            "Nice weather today", "It's so hot", "It's freezing", "It's raining",
-            "The sun is out", "I'm going out later", "I'm back", "I'm leaving",
-            "I'm busy right now", "I'm trying to sleep", "Traffic was terrible",
-            "I'm so tired", "I'm hungry", "Work was crazy today", "Finally weekend",
-            "I have so much homework", "The exam is over", "I'm on vacation",
-        ]
-        
-        # Requests (non-smart home)
-        requests = [
-            "Tell me a joke", "Call me a taxi", "Book a restaurant",
-            "Look up directions", "Translate this for me", "Calculate this",
-            "Remind me later", "Set a reminder", "Play some music", "Sing a song",
-            "Tell me a story", "Read me the news", "What's in the news",
-        ]
-        
-        # Thinking aloud / Filler
-        filler = [
-            "Testing testing", "Hmm", "Let me think", "Hold on", "One moment",
-            "Let me see", "How do I say this", "By the way", "Oh right", "Ah",
-            "Never mind", "Forget it", "Okay then", "Whatever", "Sure",
-            "I guess", "Maybe", "I don't know", "Not sure", "Interesting",
-        ]
-        
-        # Life events / Stories  
-        life = [
-            "I bought new clothes yesterday", "I just got off work", 
-            "I need to pick up the kids", "I'm waiting for the bus",
-            "I have a meeting tomorrow", "We're going on a trip this weekend",
-            "I'm thinking about dinner", "I forgot my keys", 
-            "My phone is dying", "I can't find my wallet", "I'm lost", "I'm here",
-            "I want to buy a car", "I'm considering a job change", 
-            "I'm going to work out", "I'm watching a show", "I just woke up",
-        ]
-        
-        # Expressions / Emotions
-        emotions = [
-            "That's awesome", "So annoying", "What do I do", "Oh no", "Great",
-            "No way", "Really", "I can't believe it", "That's hilarious", "So cute",
-            "Amazing", "That's crazy", "I can't take it", "So touching", 
-            "I'm so excited", "I'm nervous", "Finally", "Thank goodness",
-        ]
-        
-        # Commands to other services (not smart home)
-        other_services = [
-            "Navigate to the nearest gas station", "Search for nearby restaurants",
-            "Call mom", "Text my husband", "Check my schedule for tomorrow",
-            "Add a note", "Translate to Spanish", "What's today's news",
-            "How's the stock market", "What's the exchange rate", "Search for recipes",
-        ]
-        
-        # Random utterances / Gibberish
-        random_utterances = [
-            "One two three four five", "A B C D", "Testing one two three",
-            "Hello hello hello", "Haha", "La la la", "Hmm...", "Huh",
-            "What", "Seriously", "Okay okay", "Yeah yeah", "No no no",
-        ]
-        
-        all_texts = (greetings + questions + statements + requests +
-                     filler + life + emotions + other_services + random_utterances)
-    
-    text = random.choice(all_texts)
+
+    text = random.choice(texts)
     raw_text = humanize_text(text, lang, noise_prob=0.0)
     return emit_transcript("unknown", "none", None, None, make_slots(), raw_text, 0.15)
-
-
-def gen_abandoned_correction() -> Example:
-    """
-    Generate examples where user starts a command but abandons/corrects to nothing.
-    These should be labeled as 'transcript' not 'command'.
-    
-    Fixes: "Turn off... I mean, Testing testing" → transcript
-    """
-    lang = "zh" if random.random() < 0.5 else "en"
-    
-    if lang == "zh":
-        fake_starts = [
-            "打開", "關掉", "關", "開", "設定", "調整", 
-            "把...那個", "幫我把", "可以幫我"
-        ]
-        corrections = ["不對", "我是說", "等一下", "改一下", "算了", "沒事"]
-        non_command_endings = [
-            "測試測試", "沒事", "算了", "我想想", "等一下再說",
-            "你好", "謝謝", "我忘了", "什麼來著", ""
-        ]
-        
-        fake = random.choice(fake_starts)
-        correction = random.choice(corrections)
-        ending = random.choice(non_command_endings)
-        
-        if ending:
-            text = f"{fake}...{correction}，{ending}"
-        else:
-            text = f"{fake}...{correction}"
-            
-    else:
-        fake_starts = [
-            "Turn off", "Turn on", "Open", "Close", "Set", 
-            "Hey can you", "Please", "Could you"
-        ]
-        corrections = ["wait", "no", "I mean", "actually", "hold on", "never mind"]
-        non_command_endings = [
-            "testing testing", "never mind", "forget it", "let me think",
-            "hello", "thanks", "I forgot", "what was it", ""
-        ]
-        
-        fake = random.choice(fake_starts)
-        correction = random.choice(corrections)
-        ending = random.choice(non_command_endings)
-        
-        if ending:
-            text = f"{fake}... {correction}, {ending}"
-        else:
-            text = f"{fake}... {correction}"
-    
-    return Example(
-        type="transcript",
-        domain="unknown",
-        action="none",
-        target=None,
-        state=None,
-        slots=make_slots(),
-        raw_text=text,
-        confidence=0.15
-    )
-
-
-def gen_ambiguous_short_phrase() -> Example:
-    """
-    Generate short ambiguous phrases without clear device/action context.
-    These should be 'transcript' since intent cannot be determined.
-    
-    Fixes: "下一台" (next one - next what?) → transcript
-    """
-    lang = "zh" if random.random() < 0.5 else "en"
-    
-    if lang == "zh":
-        # Directional / Relative - AVOID media command conflicts
-        # NOTE: 下一台/上一台 are valid channel commands, removed
-        directional = [
-            "下一個", "上一個", "前一個", "後一個",
-            "左邊", "右邊", "上面", "下面", "這邊", "那邊",
-        ]
-        
-        # Quantity / Intensity
-        quantity = [
-            "多一點", "少一點", "再多一點", "再少一點", "一半",
-            "全部", "一點點", "很多", "太多", "太少", "剛好",
-        ]
-        
-        # Speed / Volume / Brightness (without device) - ONLY truly ambiguous
-        # NOTE: 大聲點/小聲點 are valid volume commands, don't include
-        # NOTE: 亮一點/暗一點 could be light commands, don't include  
-        # NOTE: 熱一點/冷一點 could be climate commands, don't include
-        adjustments = [
-            "快一點", "慢一點",
-            "高一點", "低一點", "強一點", "弱一點",
-            "大一點", "小一點", "長一點", "短一點",
-        ]
-        
-        # Action words without context - AVOID playback command conflicts
-        # NOTE: 停/暫停/繼續 could be valid playback commands
-        actions = [
-            "再一次", "開始", "結束",
-            "重來", "取消", "確定", "返回", "下一步", "上一步",
-        ]
-        
-        # Affirmations / Negations
-        responses = [
-            "好", "好的", "可以", "不行", "不要", "要", "是", "不是",
-            "對", "不對", "好了", "可以了", "夠了", "不夠", "沒有",
-            "有", "知道了", "了解", "收到", "OK",
-        ]
-        
-        # Filler / Incomplete
-        filler = [
-            "這個", "那個", "什麼", "哪個", "誰", "怎樣",
-            "然後", "所以", "還有", "而且", "但是", "不過",
-            "嗯", "喔", "啊", "欸", "蛤", "呃",
-        ]
-        
-        # Numbers without context
-        numbers = [
-            "一", "二", "三", "五", "十", "二十", "三十",
-            "百分之五十", "一半", "兩倍", "三分之一",
-        ]
-        
-        phrases = directional + quantity + adjustments + actions + responses + filler + numbers
-        
-    else:
-        # Directional / Relative - AVOID media command conflicts
-        # NOTE: "Next"/"Previous" alone could be valid playback commands
-        directional = [
-            "Next one", "Last one", "First one",
-            "Left", "Right", "Up", "Down", "This way", "That way",
-            "Forward", "Back", "Before", "After",
-        ]
-        
-        # Quantity / Intensity
-        quantity = [
-            "More", "Less", "A little more", "A little less", "Half",
-            "All", "Just a bit", "A lot", "Too much", "Too little", "Just right",
-            "Double", "Triple", "Maximum", "Minimum",
-        ]
-        
-        # Adjustments without device - ONLY truly ambiguous ones
-        # NOTE: "Louder/Quieter" are valid volume commands, don't include here
-        # NOTE: "Brighter/Dimmer" could be light commands, don't include here
-        adjustments = [
-            "Faster", "Slower",
-            "Higher", "Lower", "Stronger", "Weaker", 
-            "Bigger", "Smaller", "Longer", "Shorter",
-        ]
-        
-        # Action words without context - AVOID playback command conflicts
-        # NOTE: Stop/Pause/Continue could be valid playback commands
-        actions = [
-            "Again", "Start", "End",
-            "Restart", "Cancel", "Confirm", "Go back", "Next step", "Undo",
-            "Repeat", "Skip", "Finish",
-        ]
-        
-        # Affirmations / Negations
-        responses = [
-            "Yes", "No", "Okay", "OK", "Sure", "Nope", "Yeah", "Nah",
-            "Alright", "Fine", "Good", "Done", "Enough", "Not enough",
-            "Got it", "I see", "Roger", "Copy", "Understood",
-        ]
-        
-        # Filler / Incomplete
-        filler = [
-            "This one", "That one", "What", "Which", "Who", "How",
-            "Then", "So", "Also", "And", "But", "However",
-            "Hmm", "Oh", "Ah", "Uh", "Huh", "Um", "Er",
-        ]
-        
-        # Numbers without context
-        numbers = [
-            "One", "Two", "Three", "Five", "Ten", "Twenty", "Thirty",
-            "Fifty percent", "Half", "Double", "One third", "A quarter",
-        ]
-        
-        phrases = directional + quantity + adjustments + actions + responses + filler + numbers
-    
-    text = random.choice(phrases)
-    
-    return Example(
-        type="transcript",
-        domain="unknown",
-        action="none",
-        target=None,
-        state=None,
-        slots=make_slots(),
-        raw_text=text,
-        confidence=0.15
-    )
 
 
 # =============================================================================
@@ -1412,10 +947,8 @@ GENERATORS = [
     (gen_curtain, 0.10),
     (gen_fan, 0.10),
     (gen_media, 0.10),
-    (gen_hard_negative, 0.11),           # Reduced slightly
-    (gen_transcript, 0.13),               # Reduced slightly  
-    (gen_abandoned_correction, 0.03),     # NEW: correction → abandonment
-    (gen_ambiguous_short_phrase, 0.03),   # NEW: ambiguous short phrases
+    (gen_hard_negative, 0.14),
+    (gen_transcript, 0.16),
 ]
 
 
