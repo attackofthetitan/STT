@@ -928,6 +928,13 @@ def gen_hard_negative() -> Example:
             f"需要開{dev_word}嗎？",
             f"要不要關{dev_word}？",
             f"{room_word}的{dev_word}是不是開著？",
+            # Add patterns with adjectives (like 角落掃地機)
+            f"角落的{dev_word}開著嗎？",
+            f"那邊的{dev_word}是開的嗎？",
+            f"新買的{dev_word}好用嗎？",
+            f"舊的{dev_word}還能用嗎？",
+            f"智慧{dev_word}連線了嗎？",
+            f"主臥的{dev_word}有開嗎？",
         ]
         
         templates = questions + past_tense + observations + third_person + hypotheticals + tricky_questions
@@ -1253,9 +1260,10 @@ def gen_ambiguous_short_phrase() -> Example:
     lang = "zh" if random.random() < 0.5 else "en"
     
     if lang == "zh":
-        # Directional / Relative
+        # Directional / Relative - AVOID media command conflicts
+        # NOTE: 下一台/上一台 are valid channel commands, removed
         directional = [
-            "下一台", "下一個", "上一個", "上一台", "前一個", "後一個",
+            "下一個", "上一個", "前一個", "後一個",
             "左邊", "右邊", "上面", "下面", "這邊", "那邊",
         ]
         
@@ -1265,16 +1273,20 @@ def gen_ambiguous_short_phrase() -> Example:
             "全部", "一點點", "很多", "太多", "太少", "剛好",
         ]
         
-        # Speed / Volume / Brightness (without device)
+        # Speed / Volume / Brightness (without device) - ONLY truly ambiguous
+        # NOTE: 大聲點/小聲點 are valid volume commands, don't include
+        # NOTE: 亮一點/暗一點 could be light commands, don't include  
+        # NOTE: 熱一點/冷一點 could be climate commands, don't include
         adjustments = [
-            "快一點", "慢一點", "大聲點", "小聲點", "亮一點", "暗一點",
-            "高一點", "低一點", "強一點", "弱一點", "熱一點", "冷一點",
+            "快一點", "慢一點",
+            "高一點", "低一點", "強一點", "弱一點",
             "大一點", "小一點", "長一點", "短一點",
         ]
         
-        # Action words without context
+        # Action words without context - AVOID playback command conflicts
+        # NOTE: 停/暫停/繼續 could be valid playback commands
         actions = [
-            "再一次", "繼續", "停", "暫停", "開始", "結束",
+            "再一次", "開始", "結束",
             "重來", "取消", "確定", "返回", "下一步", "上一步",
         ]
         
@@ -1301,9 +1313,10 @@ def gen_ambiguous_short_phrase() -> Example:
         phrases = directional + quantity + adjustments + actions + responses + filler + numbers
         
     else:
-        # Directional / Relative
+        # Directional / Relative - AVOID media command conflicts
+        # NOTE: "Next"/"Previous" alone could be valid playback commands
         directional = [
-            "Next", "Previous", "Next one", "Last one", "First one",
+            "Next one", "Last one", "First one",
             "Left", "Right", "Up", "Down", "This way", "That way",
             "Forward", "Back", "Before", "After",
         ]
@@ -1315,18 +1328,21 @@ def gen_ambiguous_short_phrase() -> Example:
             "Double", "Triple", "Maximum", "Minimum",
         ]
         
-        # Adjustments without device
+        # Adjustments without device - ONLY truly ambiguous ones
+        # NOTE: "Louder/Quieter" are valid volume commands, don't include here
+        # NOTE: "Brighter/Dimmer" could be light commands, don't include here
         adjustments = [
-            "Louder", "Quieter", "Brighter", "Dimmer", "Faster", "Slower",
-            "Higher", "Lower", "Stronger", "Weaker", "Warmer", "Cooler",
+            "Faster", "Slower",
+            "Higher", "Lower", "Stronger", "Weaker", 
             "Bigger", "Smaller", "Longer", "Shorter",
         ]
         
-        # Action words without context
+        # Action words without context - AVOID playback command conflicts
+        # NOTE: Stop/Pause/Continue could be valid playback commands
         actions = [
-            "Again", "Continue", "Stop", "Pause", "Start", "End",
+            "Again", "Start", "End",
             "Restart", "Cancel", "Confirm", "Go back", "Next step", "Undo",
-            "Repeat", "Skip", "Resume", "Finish",
+            "Repeat", "Skip", "Finish",
         ]
         
         # Affirmations / Negations
