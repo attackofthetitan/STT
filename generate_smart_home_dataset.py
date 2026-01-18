@@ -32,43 +32,43 @@ CANONICAL_DEVICES = ["light", "thermostat", "robot_vacuum", "timer", "curtain", 
 ROOMS = [r for r in CANONICAL_TARGETS if r != "default"]
 
 ROOM_ALIASES_ZH = {
-    "bathroom": ["廁所", "浴室", "洗手間", "茅房", "盥洗室", "衛浴間"],
-    "kitchen": ["廚房", "灶咖", "煮飯的地方", "烹飪區", "料理台"],
-    "bedroom": ["臥室", "主臥", "寢室", "主臥室", "睡房", "臥房"],  # Removed "房間" - too ambiguous
-    "living_room": ["客廳", "起居室", "休憩區", "沙發區", "會客室"],
-    "dining_room": ["餐廳", "飯廳", "吃飯的地方", "用餐區"],
-    "study": ["書房", "辦公室", "工作區", "電腦房"],
-    "balcony": ["陽台", "露台", "前陽台", "後陽台", "觀景台"],
-    "hallway": ["走廊", "過道", "走道", "長廊", "通廊", "廊道"],
-    "entryway": ["玄關", "門口", "大門口", "入口", "進門處"],
-    "garage": ["車庫", "停車場", "車房"],
-    "basement": ["地下室", "地窖", "儲藏室", "地庫"],
-    "attic": ["閣樓", "頂樓", "天台", "樓頂"],
-    "laundry_room": ["洗衣間", "曬衣間", "洗衣房"],
-    "closet": ["衣櫃間", "儲物間", "衣帽間"],
-    "guest_room": ["客房", "訪客房", "賓客室"],
-    "nursery": ["嬰兒房", "育嬰室", "兒童房", "寶寶房"],
-    "default": ["家裡", "全部", "所有地方", "整個房子", "室內", "全屋"],
+    "bathroom": ["廁所", "浴室", "洗手間"],
+    "kitchen": ["廚房"],
+    "bedroom": ["臥室", "主臥", "臥房"],
+    "living_room": ["客廳"],
+    "dining_room": ["餐廳", "飯廳"],
+    "study": ["書房", "辦公室"],
+    "balcony": ["陽台", "露台"],
+    "hallway": ["走廊", "走道"],
+    "entryway": ["玄關", "門口"],
+    "garage": ["車庫"],
+    "basement": ["地下室"],
+    "attic": ["閣樓"],
+    "laundry_room": ["洗衣間", "洗衣房"],
+    "closet": ["衣櫃間", "儲物間"],
+    "guest_room": ["客房"],
+    "nursery": ["嬰兒房", "兒童房"],
+    "default": ["家裡", "全部", "全屋"],
 }
 
 ROOM_ALIASES_EN = {
-    "bathroom": ["bathroom", "restroom", "bath", "loo", "powder room", "toilet"],
-    "kitchen": ["kitchen", "cooking area", "kitchenette"],
-    "bedroom": ["bedroom", "master bedroom", "sleeping quarters", "master suite"],
-    "living_room": ["living room", "lounge", "family room", "sitting room", "den"],
-    "dining_room": ["dining room", "dining area", "dinette", "eating area"],
-    "study": ["study", "office", "workspace", "home office"],
-    "balcony": ["balcony", "terrace", "patio", "deck", "porch"],
-    "hallway": ["hallway", "corridor", "hall", "passage"],
-    "entryway": ["entryway", "foyer", "entrance", "lobby", "mudroom"],
-    "garage": ["garage", "car port", "parking area"],
-    "basement": ["basement", "cellar", "downstairs", "lower level"],
-    "attic": ["attic", "loft", "upper level", "garret"],
-    "laundry_room": ["laundry room", "utility room", "laundry", "utility"],
-    "closet": ["closet", "wardrobe", "storage room", "walk-in"],
-    "guest_room": ["guest room", "spare room", "visitor room"],
-    "nursery": ["nursery", "baby room", "kids room", "children's room"],
-    "default": ["the house", "everywhere", "the whole place", "all rooms"],
+    "bathroom": ["bathroom", "restroom"],
+    "kitchen": ["kitchen"],
+    "bedroom": ["bedroom", "master bedroom"],
+    "living_room": ["living room", "lounge"],
+    "dining_room": ["dining room"],
+    "study": ["study", "office"],
+    "balcony": ["balcony", "patio", "porch"],
+    "hallway": ["hallway", "corridor", "hall"],
+    "entryway": ["entryway", "foyer", "entrance"],
+    "garage": ["garage"],
+    "basement": ["basement", "cellar"],
+    "attic": ["attic", "loft"],
+    "laundry_room": ["laundry room", "laundry"],
+    "closet": ["closet", "storage room"],
+    "guest_room": ["guest room", "spare room"],
+    "nursery": ["nursery", "baby room", "kids room"],
+    "default": ["the house", "everywhere"],
 }
 
 # Build a combined lookup for detecting rooms in text
@@ -387,33 +387,33 @@ def gen_lights() -> Example:
     explicit_device = random.random() < 0.70
     dev_word = get_granular_device("light", lang) if explicit_device else ("燈" if lang == "zh" else "light")
 
-    # Situational commands
-    if random.random() < 0.20:
-        situation = random.choice(["dark", "bright"])
+    # Situational commands - increased to 30% for more "human" inference training
+    if random.random() < 0.30:
+        situation = random.choice(["dark", "bright", "dark", "dark"])  # Bias toward dark (more common)
         if situation == "dark":
             onoff, action = "on", "turn_on"
             if lang == "zh":
                 if include_room_in_structure:
-                    phrases = [f"{room_word}太暗了", f"{room_word}看不到"]
+                    phrases = [f"{room_word}太暗了", f"{room_word}看不到", f"{room_word}黑黑的"]
                 else:
-                    phrases = ["這裡太暗了", "看不到路", "有點暗"]
+                    phrases = ["這裡太暗了", "看不到路", "有點暗", "好暗", "看不清楚", "黑漆漆的", "太暗了"]
             else:
                 if include_room_in_structure:
-                    phrases = [f"the {room_word} is too dark", f"it's dark in the {room_word}"]
+                    phrases = [f"the {room_word} is too dark", f"it's dark in the {room_word}", f"can't see in the {room_word}"]
                 else:
-                    phrases = ["it's too dark", "I can't see", "it's dim"]
+                    phrases = ["it's too dark", "I can't see", "it's dim", "too dark", "can't see anything", "it's pitch black", "I need some light"]
         else:
             onoff, action = "off", "turn_off"
             if lang == "zh":
                 if include_room_in_structure:
                     phrases = [f"{room_word}太亮了", f"{room_word}好刺眼"]
                 else:
-                    phrases = ["這裡太亮了", "好刺眼", "太亮了"]
+                    phrases = ["這裡太亮了", "好刺眼", "太亮了", "眼睛好痛", "亮到受不了"]
             else:
                 if include_room_in_structure:
                     phrases = [f"the {room_word} is too bright", f"too bright in the {room_word}"]
                 else:
-                    phrases = ["it's too bright", "it's blinding", "too bright"]
+                    phrases = ["it's too bright", "it's blinding", "too bright", "my eyes hurt", "way too bright"]
 
         raw_text = humanize_text(random.choice(phrases), lang)
         final_target = finalize_target(raw_text)  # Detect from final text!
@@ -456,20 +456,32 @@ def gen_climate() -> Example:
     explicit_device = random.random() < 0.55
     dev_word = get_granular_device("ac", lang) if explicit_device else ("冷氣" if lang == "zh" else "AC")
 
-    # Feeling-based commands
-    if random.random() < 0.15:
-        feeling = random.choice(["hot", "cold"])
+    # Feeling-based commands - increased to 25% for more "human" inference
+    if random.random() < 0.25:
+        feeling = random.choice(["hot", "cold", "hot", "hot"])  # Bias toward hot (more common AC use case)
         if feeling == "hot":
             if lang == "zh":
-                phrases = [f"{room_word}好悶", "好熱", "太熱了"] if include_room_in_structure else ["好熱", "太熱了", "熱死了"]
+                if include_room_in_structure:
+                    phrases = [f"{room_word}好悶", f"{room_word}好熱", f"{room_word}太熱了"]
+                else:
+                    phrases = ["好熱", "太熱了", "熱死了", "好悶", "快中暑了", "流汗了", "受不了這個熱"]
             else:
-                phrases = [f"the {room_word} is hot", "it's too hot"] if include_room_in_structure else ["it's too hot", "I'm burning up"]
+                if include_room_in_structure:
+                    phrases = [f"the {room_word} is hot", f"it's too hot in the {room_word}", f"the {room_word} is stuffy"]
+                else:
+                    phrases = ["it's too hot", "I'm burning up", "it's so hot", "I'm sweating", "it's stuffy", "the heat is killing me"]
             action, state = "turn_on", "on"
         else:
             if lang == "zh":
-                phrases = [f"{room_word}好冰", "好冷", "太冷了"] if include_room_in_structure else ["好冷", "太冷了", "冷死了"]
+                if include_room_in_structure:
+                    phrases = [f"{room_word}好冰", f"{room_word}好冷", f"{room_word}太冷了"]
+                else:
+                    phrases = ["好冷", "太冷了", "冷死了", "發抖了", "冷到受不了"]
             else:
-                phrases = [f"the {room_word} is freezing", "it's cold"] if include_room_in_structure else ["it's too cold", "I'm freezing"]
+                if include_room_in_structure:
+                    phrases = [f"the {room_word} is freezing", f"it's cold in the {room_word}"]
+                else:
+                    phrases = ["it's too cold", "I'm freezing", "it's freezing", "I'm shivering", "way too cold"]
             action, state = "turn_off", "off"
 
         raw_text = humanize_text(random.choice(phrases), lang)
@@ -749,7 +761,7 @@ def gen_media() -> Example:
     """Generate a media domain command."""
     lang = "zh" if random.random() < 0.5 else "en"
 
-    action_type = random.choice(["onoff", "volume_explicit", "volume_generic", "playback", "channel"])
+    action_type = random.choice(["onoff", "volume_explicit", "volume_generic", "playback", "playback", "channel"])
 
     if action_type == "volume_generic":
         # Generic volume - no device specified, so don't expect model to guess
@@ -842,10 +854,15 @@ def gen_media() -> Example:
     media_type = random.choice(["tv", "speaker"])
     dev_word = get_granular_device(media_type, lang)
     
-    action = random.choice(["play", "pause", "next", "previous", "stop"])
+    action = random.choice(["play", "pause", "next", "previous", "stop", "next", "previous"])  # Extra weight for next/previous
     if lang == "zh":
         vmap = {"play": "播放", "pause": "暫停", "next": "下一首", "previous": "上一首", "stop": "停止"}
-        st = f"{dev_word}{vmap[action]}"
+        # More variety in structure
+        if action in ["next", "previous"]:
+            structures = [f"{dev_word}{vmap[action]}", f"{vmap[action]}", f"切{vmap[action]}"]
+        else:
+            structures = [f"{dev_word}{vmap[action]}"]
+        st = random.choice(structures)
     else:
         vmap = {"play": "play", "pause": "pause", "next": "next track", "previous": "previous track", "stop": "stop"}
         st = f"{vmap[action]} on {dev_word}"
@@ -1061,9 +1078,11 @@ def gen_transcript() -> Example:
             "功課寫完了嗎", "垃圾車來了嗎", "快遞到了嗎", "門鈴是誰",
         ]
         
-        # Statements & Observations
+        # Statements & Observations - removed phrases that imply smart home actions
+        # "好熱喔/好冷喔" → could mean adjust AC (removed)
+        # "出太陽了" → could mean turn off lights/close curtains (removed)
         statements = [
-            "今天天氣真好", "好熱喔", "好冷喔", "下雨了", "出太陽了",
+            "今天天氣真好", "下雨了",
             "我等等要出門", "我回來了", "我出門了", "我在忙", "我在睡覺",
             "股市今天跌了", "塞車塞好久", "好累喔", "肚子好餓",
             "今天上班好忙", "作業好多", "考試考完了", "放假了",
@@ -1132,10 +1151,12 @@ def gen_transcript() -> Example:
             "Where are my keys", "Have you seen my phone", "What was I saying",
         ]
         
-        # Statements & Observations
+        # Statements & Observations - removed phrases that imply smart home actions
+        # "The sun is out" → could mean turn off lights (removed)
+        # "It's so hot/freezing" → could mean adjust AC (removed)
         statements = [
-            "Nice weather today", "It's so hot", "It's freezing", "It's raining",
-            "The sun is out", "I'm going out later", "I'm back", "I'm leaving",
+            "Nice weather today", "It's raining",
+            "I'm going out later", "I'm back", "I'm leaving",
             "I'm busy right now", "I'm trying to sleep", "Traffic was terrible",
             "I'm so tired", "I'm hungry", "Work was crazy today", "Finally weekend",
             "I have so much homework", "The exam is over", "I'm on vacation",
