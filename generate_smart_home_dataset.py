@@ -7,9 +7,7 @@ import hashlib
 
 random.seed(42)
 
-# =============================================================================
-# SCHEMA ALIGNMENT
-# =============================================================================
+# Schema templates
 
 CANONICAL_TYPES = ["command", "transcript"]
 CANONICAL_DOMAINS = ["lights", "climate", "vacuum", "timer", "curtain", "fan", "media", "unknown"]
@@ -25,9 +23,7 @@ CANONICAL_TARGETS = [
 ]
 CANONICAL_DEVICES = ["light", "thermostat", "robot_vacuum", "timer", "curtain", "fan", "tv", "speaker"]
 
-# =============================================================================
-# ROOM DEFINITIONS
-# =============================================================================
+# Room definitions
 
 ROOMS = [r for r in CANONICAL_TARGETS if r != "default"]
 
@@ -71,7 +67,7 @@ ROOM_ALIASES_EN = {
     "default": ["the house", "everywhere"],
 }
 
-# Build a combined lookup for detecting rooms in text
+# lookup for detecting rooms in text
 def build_room_detection_map() -> Dict[str, str]:
     """
     Build a map from all room aliases (lowercased) to their canonical room name.
@@ -80,7 +76,7 @@ def build_room_detection_map() -> Dict[str, str]:
     detection_map = {}
     for room, aliases in ROOM_ALIASES_ZH.items():
         if room == "default":
-            continue  # Don't detect "default" aliases as specific rooms
+            continue  # Don't detect default aliases as specific rooms
         for alias in aliases:
             detection_map[alias.lower()] = room
     for room, aliases in ROOM_ALIASES_EN.items():
@@ -99,7 +95,6 @@ def detect_room_in_text(text: str) -> Optional[str]:
     
     Checks longer aliases first to avoid partial matches.
     Uses word boundaries for short English words to avoid false positives
-    (e.g., "floor" should not match "loo").
     """
     import re
     text_lower = text.lower()
@@ -108,23 +103,20 @@ def detect_room_in_text(text: str) -> Optional[str]:
     sorted_aliases = sorted(ROOM_DETECTION_MAP.keys(), key=len, reverse=True)
     
     for alias in sorted_aliases:
-        # For short English words (<=4 chars, ASCII only), require word boundaries
-        # This prevents "floor" from matching "loo", "den" from matching "garden", etc.
+        # For short English words will require word boundaries to prevent "floor" from matching "loo", "den" from matching "garden", etc.
         if len(alias) <= 4 and alias.isascii():
             pattern = r'\b' + re.escape(alias) + r'\b'
             if re.search(pattern, text_lower):
                 return ROOM_DETECTION_MAP[alias]
         else:
-            # For longer phrases or non-ASCII (Chinese), simple substring match is fine
+            # For longer phrases or non-ASCII (Chinese) use simple substring match
             if alias in text_lower:
                 return ROOM_DETECTION_MAP[alias]
     
     return None
 
 
-# =============================================================================
-# OTHER DEFINITIONS
-# =============================================================================
+# Other definitions
 
 PERSON_NAMES_ZH = ["爸爸", "媽媽", "哥哥", "妹妹", "阿嬤", "爺爺", "小寶", "老婆", "老公"]
 PERSON_NAMES_EN = ["Mom", "Dad", "Alice", "Bob", "Grandma", "Tommy", "Honey"]
@@ -198,9 +190,7 @@ TIME_EXPRESSIONS_ZH = ["等一下", "待會", "稍後", "睡前", "現在"]
 INTENSITY_EN = ["very", "really", "a bit", "slightly", "completely"]
 INTENSITY_ZH = ["很", "非常", "有點", "稍微", "完全"]
 
-# =============================================================================
-# HELPER FUNCTIONS
-# =============================================================================
+# Helpers
 
 def to_zh_count(n: int) -> str:
     if n == 2: return random.choice(["兩", "二"])
@@ -266,7 +256,7 @@ def inject_asr_noise(text: str, lang: str, prob: float = 0.0) -> str:
         return out
 
 def apply_code_switching(text: str, main_lang: str) -> str:
-    """Mix languages - replace a room name with its equivalent in the other language."""
+    """Switching languages to replace a room name with its equivalent in the other language."""
     if random.random() > 0.35:
         return text
     
@@ -293,7 +283,7 @@ def apply_code_switching(text: str, main_lang: str) -> str:
     return text
 
 def inject_hesitation_and_correction(text: str, lang: str) -> str:
-    if random.random() > 0.30:  # Increased from 0.15 for better correction coverage
+    if random.random() > 0.30:
         return text
     corrections = CORRECTIONS_ZH if lang == "zh" else CORRECTIONS_EN
     fake_actions = ["關掉", "打開", "設定"] if lang == "zh" else ["Turn off", "Open", "Set"]
@@ -302,7 +292,7 @@ def inject_hesitation_and_correction(text: str, lang: str) -> str:
     return f"{fake}...{correction}，{text}" if lang == "zh" else f"{fake}... {correction}, {text}"
 
 def humanize_text(text: str, lang: str, noise_prob: float = 0.0) -> str:
-    """Add natural speech patterns - fillers, prefixes, suffixes, code-switching."""
+    """Add natural speech patterns such as fillers, prefixes, suffixes, code-switching."""
     text = apply_code_switching(text, lang)
     text = inject_hesitation_and_correction(text, lang)
     text = inject_asr_noise(text, lang, prob=noise_prob)
@@ -338,9 +328,7 @@ def make_slots(**kwargs) -> Dict[str, Any]:
         "scene": kwargs.get("scene"),
     }
 
-# =============================================================================
-# DATA CLASSES
-# =============================================================================
+# Data classes
 
 @dataclass
 class Example:
@@ -364,16 +352,12 @@ def emit_transcript(domain, action, target, state, slots, text, base_conf=0.15) 
 
 def finalize_target(text: str) -> str:
     """
-    Determine the target based on what room aliases appear in the FINAL text.
-    This is the KEY FUNCTION - it ensures ground truth matches what model can see.
+    Determine the target based on what room aliases appear and ensures ground truth matches what model can see.
     """
     detected = detect_room_in_text(text)
     return detected if detected else "default"
 
-
-# =============================================================================
-# DOMAIN GENERATORS
-# =============================================================================
+# Domain generators
 
 def gen_lights() -> Example:
     """Generate a lights domain command."""
@@ -764,7 +748,7 @@ def gen_media() -> Example:
     action_type = random.choice(["onoff", "volume_explicit", "volume_generic", "playback", "playback", "channel"])
 
     if action_type == "volume_generic":
-        # Generic volume - no device specified, so don't expect model to guess
+        # Generic volume that has no device specified, so don't expect model to guess
         numeric = random.random() < 0.50
         vol = random.choice([10, 20, 30, 40, 50, 60, 70, 80])
         direction = random.choice(["up", "down"])
@@ -854,10 +838,9 @@ def gen_media() -> Example:
     media_type = random.choice(["tv", "speaker"])
     dev_word = get_granular_device(media_type, lang)
     
-    action = random.choice(["play", "pause", "next", "previous", "stop", "next", "previous"])  # Extra weight for next/previous
+    action = random.choice(["play", "pause", "next", "previous", "stop", "next", "previous"])
     if lang == "zh":
         vmap = {"play": "播放", "pause": "暫停", "next": "下一首", "previous": "上一首", "stop": "停止"}
-        # More variety in structure
         if action in ["next", "previous"]:
             structures = [f"{dev_word}{vmap[action]}", f"{vmap[action]}", f"切{vmap[action]}"]
         else:
@@ -873,7 +856,7 @@ def gen_media() -> Example:
 
 
 def gen_hard_negative() -> Example:
-    """Generate hard negatives - mentions devices but NOT commands."""
+    """Generate hard negatives that mentions devices but NOT commands."""
     lang = "zh" if random.random() < 0.5 else "en"
     
     dev_type = random.choice(["light", "ac", "tv", "vacuum", "fan", "curtain"])
@@ -1078,9 +1061,7 @@ def gen_transcript() -> Example:
             "功課寫完了嗎", "垃圾車來了嗎", "快遞到了嗎", "門鈴是誰",
         ]
         
-        # Statements & Observations - removed phrases that imply smart home actions
-        # "好熱喔/好冷喔" → could mean adjust AC (removed)
-        # "出太陽了" → could mean turn off lights/close curtains (removed)
+        # Statements & Observations
         statements = [
             "今天天氣真好", "下雨了",
             "我等等要出門", "我回來了", "我出門了", "我在忙", "我在睡覺",
@@ -1152,8 +1133,6 @@ def gen_transcript() -> Example:
         ]
         
         # Statements & Observations - removed phrases that imply smart home actions
-        # "The sun is out" → could mean turn off lights (removed)
-        # "It's so hot/freezing" → could mean adjust AC (removed)
         statements = [
             "Nice weather today", "It's raining",
             "I'm going out later", "I'm back", "I'm leaving",
@@ -1224,8 +1203,6 @@ def gen_abandoned_correction() -> Example:
     """
     Generate examples where user starts a command but abandons/corrects to nothing.
     These should be labeled as 'transcript' not 'command'.
-    
-    Fixes: "Turn off... I mean, Testing testing" → transcript
     """
     lang = "zh" if random.random() < 0.5 else "en"
     
@@ -1282,17 +1259,10 @@ def gen_abandoned_correction() -> Example:
 
 
 def gen_ambiguous_short_phrase() -> Example:
-    """
-    Generate short ambiguous phrases without clear device/action context.
-    These should be 'transcript' since intent cannot be determined.
-    
-    Fixes: "下一台" (next one - next what?) → transcript
-    """
     lang = "zh" if random.random() < 0.5 else "en"
     
     if lang == "zh":
-        # Directional / Relative - AVOID media command conflicts
-        # NOTE: 下一台/上一台 are valid channel commands, removed
+        # Directional / Relative
         directional = [
             "下一個", "上一個", "前一個", "後一個",
             "左邊", "右邊", "上面", "下面", "這邊", "那邊",
@@ -1304,10 +1274,7 @@ def gen_ambiguous_short_phrase() -> Example:
             "全部", "一點點", "很多", "太多", "太少", "剛好",
         ]
         
-        # Speed / Volume / Brightness (without device) - ONLY truly ambiguous
-        # NOTE: 大聲點/小聲點 are valid volume commands, don't include
-        # NOTE: 亮一點/暗一點 could be light commands, don't include  
-        # NOTE: 熱一點/冷一點 could be climate commands, don't include
+        # Speed / Volume / Brightness (without device)
         adjustments = [
             "快一點", "慢一點",
             "高一點", "低一點", "強一點", "弱一點",
@@ -1315,7 +1282,6 @@ def gen_ambiguous_short_phrase() -> Example:
         ]
         
         # Action words without context - AVOID playback command conflicts
-        # NOTE: 停/暫停/繼續 could be valid playback commands
         actions = [
             "再一次", "開始", "結束",
             "重來", "取消", "確定", "返回", "下一步", "上一步",
@@ -1344,8 +1310,7 @@ def gen_ambiguous_short_phrase() -> Example:
         phrases = directional + quantity + adjustments + actions + responses + filler + numbers
         
     else:
-        # Directional / Relative - AVOID media command conflicts
-        # NOTE: "Next"/"Previous" alone could be valid playback commands
+        # Directional / Relative
         directional = [
             "Next one", "Last one", "First one",
             "Left", "Right", "Up", "Down", "This way", "That way",
@@ -1359,17 +1324,14 @@ def gen_ambiguous_short_phrase() -> Example:
             "Double", "Triple", "Maximum", "Minimum",
         ]
         
-        # Adjustments without device - ONLY truly ambiguous ones
-        # NOTE: "Louder/Quieter" are valid volume commands, don't include here
-        # NOTE: "Brighter/Dimmer" could be light commands, don't include here
+        # Adjustments without device
         adjustments = [
             "Faster", "Slower",
             "Higher", "Lower", "Stronger", "Weaker", 
             "Bigger", "Smaller", "Longer", "Shorter",
         ]
         
-        # Action words without context - AVOID playback command conflicts
-        # NOTE: Stop/Pause/Continue could be valid playback commands
+        # Action words without context
         actions = [
             "Again", "Start", "End",
             "Restart", "Cancel", "Confirm", "Go back", "Next step", "Undo",
@@ -1411,10 +1373,7 @@ def gen_ambiguous_short_phrase() -> Example:
         confidence=0.15
     )
 
-
-# =============================================================================
-# DATASET GENERATION
-# =============================================================================
+# Generate
 
 def compute_text_hash(text: str) -> str:
     normalized = " ".join(text.strip().lower().split())
@@ -1443,10 +1402,10 @@ GENERATORS = [
     (gen_curtain, 0.10),
     (gen_fan, 0.10),
     (gen_media, 0.10),
-    (gen_hard_negative, 0.11),           # Reduced slightly
-    (gen_transcript, 0.13),               # Reduced slightly  
-    (gen_abandoned_correction, 0.03),     # NEW: correction → abandonment
-    (gen_ambiguous_short_phrase, 0.03),   # NEW: ambiguous short phrases
+    (gen_hard_negative, 0.11),
+    (gen_transcript, 0.13),
+    (gen_abandoned_correction, 0.03),  
+    (gen_ambiguous_short_phrase, 0.03),
 ]
 
 
