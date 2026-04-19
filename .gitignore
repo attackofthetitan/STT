@@ -1,0 +1,6 @@
+.dist/private-finetune-remote.git/
+.dist/private-finetune-seed/
+__pycache__/
+failures.json
+models/
+smart_home_mega_v2.jsonl

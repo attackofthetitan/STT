@@ -1,0 +1,49 @@
+# Smart Home Intent Parser Grammar
+# Forces valid JSON output matching the schema
+
+root ::= "{" ws type-kv "," ws domain-kv "," ws action-kv "," ws target-kv "," ws state-kv "," ws slots-kv ws "}"
+
+# Key-value pairs
+type-kv ::= "\"type\"" ws ":" ws type-value
+domain-kv ::= "\"domain\"" ws ":" ws domain-value
+action-kv ::= "\"action\"" ws ":" ws action-value
+target-kv ::= "\"target\"" ws ":" ws target-value
+state-kv ::= "\"state\"" ws ":" ws state-value
+slots-kv ::= "\"slots\"" ws ":" ws slots-object
+
+# Enum values
+type-value ::= "\"command\"" | "\"transcript\""
+
+domain-value ::= "\"lights\"" | "\"climate\"" | "\"vacuum\"" | "\"timer\"" | "\"curtain\"" | "\"fan\"" | "\"media\"" | "\"unknown\""
+
+action-value ::= "\"turn_on\"" | "\"turn_off\"" | "\"set\"" | "\"open\"" | "\"close\"" | "\"start\"" | "\"stop\"" | "\"pause\"" | "\"dock\"" | "\"set_speed\"" | "\"set_volume\"" | "\"set_time\"" | "\"set_position\"" | "\"channel_change\"" | "\"play\"" | "\"next\"" | "\"previous\"" | "\"none\""
+
+target-value ::= "\"bathroom\"" | "\"kitchen\"" | "\"bedroom\"" | "\"living_room\"" | "\"dining_room\"" | "\"study\"" | "\"balcony\"" | "\"hallway\"" | "\"entryway\"" | "\"garage\"" | "\"basement\"" | "\"attic\"" | "\"laundry_room\"" | "\"closet\"" | "\"guest_room\"" | "\"nursery\"" | "\"default\"" | "null"
+
+state-value ::= "\"on\"" | "\"off\"" | "\"open\"" | "\"close\"" | "null"
+
+# Slots object
+slots-object ::= "{" ws device-kv "," ws value-kv "," ws value-num-kv "," ws unit-kv "," ws mode-kv "," ws scene-kv ws "}"
+
+device-kv ::= "\"device\"" ws ":" ws device-value
+value-kv ::= "\"value\"" ws ":" ws (string | "null")
+value-num-kv ::= "\"value_num\"" ws ":" ws (number | "null")
+unit-kv ::= "\"unit\"" ws ":" ws unit-value
+mode-kv ::= "\"mode\"" ws ":" ws (string | "null")
+scene-kv ::= "\"scene\"" ws ":" ws (string | "null")
+
+device-value ::= "\"light\"" | "\"thermostat\"" | "\"robot_vacuum\"" | "\"timer\"" | "\"curtain\"" | "\"fan\"" | "\"tv\"" | "\"speaker\"" | "null"
+
+unit-value ::= "\"celsius\"" | "\"percent\"" | "\"seconds\"" | "\"minutes\"" | "\"hours\"" | "null"
+
+# Primitives
+string ::= "\"" characters "\""
+characters ::= character*
+character ::= [^"\\] | "\\" escape-char
+escape-char ::= ["\\nrt]
+
+number ::= integer ("." digit+)?
+integer ::= "-"? ("0" | [1-9] digit*)
+digit ::= [0-9]
+
+ws ::= [ \t\n\r]*

@@ -1,0 +1,4 @@
+[submodule "private/finetune"]
+	path = private/finetune
+	url = git@github.com:attackofthetitan/STT-private-finetune.git
+	branch = main

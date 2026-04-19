@@ -10,7 +10,7 @@ os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
 # Vendor CUDA DLLs
 CUDNN_DIR  = ROOT / "vendor" / "cudnn" / "bin"
-CUDBLAS_DIR   = ROOT / "vendor" / "cublas" / "bin" 
+CUDBLAS_DIR   = ROOT / "vendor" / "cublas" / "bin"
 os.environ["PATH"] = f"{CUDNN_DIR};{CUDBLAS_DIR};" + os.environ.get("PATH", "")
 
 import numpy as np
@@ -32,8 +32,8 @@ PREPAD_FRAMES = max(1, PREPAD_MS // FRAME_MS)
 MAX_SPEECH_SEC = 12
 MIN_SPEECH_MS = 200
 
-# Silero VAD threshold 
-VAD_THRESHOLD = 0.3   
+# Silero VAD threshold
+VAD_THRESHOLD = 0.3
 
 # Whisper settings
 MODEL_NAME = "medium"
@@ -65,12 +65,15 @@ def silero_prob(sess, audio_f32: np.ndarray, state: np.ndarray):
     return float(np.squeeze(prob)), state
 
 def parse_command_llm_safe(text: str) -> dict:
-    # Makes sure the LLM parsing does not raise exceptions
-    for _ in range(2):
+    last_err = None
+    for attempt in range(3):
         try:
             return parse_command_llm(text)
-        except Exception:
-            pass
+        except Exception as e:
+            last_err = e
+            if attempt < 2:
+                time.sleep(0.05 * (attempt + 1))
+    print(f"  [LLM parse failed after 3 attempts: {last_err}]")
     return {
         "type": "transcript",
         "domain": "unknown",
@@ -80,13 +83,12 @@ def parse_command_llm_safe(text: str) -> dict:
         "slots": {
             "device": None,
             "value": None,
+            "value_num": None,
             "unit": None,
             "mode": None,
             "scene": None,
-            "duration_sec": None
         },
         "raw_text": text,
-        "confidence": 0.0,
     }
 
 
@@ -143,7 +145,7 @@ def main():
                     recording = True
                     speech_start_t = time.perf_counter()
                     silence_run = 0
-                    speech = list(prepad)  
+                    speech = list(prepad)
                     prepad = []
             else:
                 speech.append(x)
@@ -165,7 +167,8 @@ def main():
                     if dur_ms < MIN_SPEECH_MS:
                         continue
 
-                    t0 = now_ms()
+                    # --- Whisper transcription ---
+                    t_whisper = now_ms()
                     segments, info = model.transcribe(
                         audio_f32,
                         language=LANGUAGE,
@@ -175,19 +178,25 @@ def main():
                         beam_size=BEAM_SIZE,
                         best_of=BEST_OF,
                     )
-                    dt = now_ms() - t0
-
                     text = " ".join(s.text.strip() for s in segments).strip()
-                    if text:
-                        print(f"> ({dt:.0f} ms) {text}  [{info.language} {info.language_probability:.2f}]")
-                    
+                    dt_whisper = now_ms() - t_whisper
+
+                    # Skip empty transcripts — no point sending to LLM
+                    if not text:
+                        continue
+
+                    print(f"> [{info.language} {info.language_probability:.2f}] ({dt_whisper:.0f}ms) {text}")
+
+                    # --- LLM intent parsing ---
+                    t_llm = now_ms()
                     event = parse_command_llm_safe(text)
+                    dt_llm = now_ms() - t_llm
+
                     event["raw_transcript"] = text
-                    print(json.dumps(event, ensure_ascii=False))
+                    print(f"  LLM: {dt_llm:.0f}ms | {json.dumps(event, ensure_ascii=False)}")
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
         print("\nStopped.")
-
