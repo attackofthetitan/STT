@@ -202,6 +202,9 @@ DEFAULT_COMMAND_NOISE_PROB = 0.12
 DEFAULT_TRANSCRIPT_NOISE_PROB = 0.04
 DEFAULT_NEGATIVE_NOISE_PROB = 0.06
 DEFAULT_SEMANTIC_CONTEXT_PROB = 0.20
+DEFAULT_DISCOURSE_VARIATION_PROB = 0.18
+DEFAULT_REPHRASE_PROB = 0.10
+DEFAULT_PUNCTUATION_VARIATION_PROB = 0.10
 
 SEMANTIC_PREFIXES_EN = [
     "if possible, ", "when you get a moment, ", "for tonight, ",
@@ -237,6 +240,52 @@ SEMANTIC_QUESTION_PREFIXES_ZH = [
 ]
 SEMANTIC_QUESTION_SUFFIXES_ZH = [
     "，我只是先確認", "，我想先搞清楚", "，先確認一下",
+]
+
+DISCOURSE_REASON_EN = [
+    "I'm handling something else", "I'm trying to keep things organized", "I need this sorted first",
+    "I don't want to forget it", "I'm in the middle of another task", "I'm planning the next step",
+]
+DISCOURSE_CONTRAST_EN = [
+    "I was going to leave it, but", "I thought I'd wait, but", "this can probably wait, but",
+    "I wasn't going to ask, but", "I tried to ignore it, but",
+]
+DISCOURSE_SEQUENCE_EN = [
+    "before I move on,", "as the next step,", "while we're at it,", "to keep the flow going,",
+    "for this step,", "first thing,",
+]
+
+DISCOURSE_REASON_ZH = [
+    "我正在忙別的事", "我想先把事情排好", "我怕我等等忘記",
+    "我現在手上還有其他事", "我在安排接下來的步驟", "我想先處理這件事",
+]
+DISCOURSE_CONTRAST_ZH = [
+    "本來想先放著，不過", "原本不急，但", "我剛剛想先等等，可是",
+    "原本不打算現在做，但", "我本來想晚點再說，不過",
+]
+DISCOURSE_SEQUENCE_ZH = [
+    "先處理這個，", "下一步先", "順便先", "趁現在先", "先把這件事做掉，", "先來",
+]
+
+EN_REPHRASE_PAIRS = [
+    ("right now", "at the moment"),
+    ("can you", "could you"),
+    ("I need", "I would like"),
+    ("set", "adjust"),
+    ("turn off", "switch off"),
+    ("turn on", "switch on"),
+    ("for now", "for the moment"),
+    ("quickly", "when you can"),
+]
+
+ZH_REPHRASE_PAIRS = [
+    ("幫我", "麻煩你"),
+    ("現在", "這會兒"),
+    ("調到", "調成"),
+    ("關掉", "關掉一下"),
+    ("打開", "開一下"),
+    ("先", "先幫我"),
+    ("提醒我", "記得提醒我"),
 ]
 
 # Helpers
@@ -426,20 +475,101 @@ def inject_semantic_context(text: str, lang: str, prob: float = DEFAULT_SEMANTIC
     return f"{random.choice(prefixes)}{stripped}{random.choice(suffixes)}"
 
 
+def inject_discourse_variation(text: str, lang: str, prob: float = DEFAULT_DISCOURSE_VARIATION_PROB) -> str:
+    """Inject discourse-level structure (reason/contrast/sequence) without changing intent semantics."""
+    if random.random() > prob:
+        return text
+
+    stripped = text.strip()
+    if not stripped:
+        return text
+
+    if lang == "en" and len(stripped.split()) <= 2 and random.random() < 0.80:
+        return text
+    if lang == "zh" and len(stripped) <= 3 and random.random() < 0.80:
+        return text
+
+    mode = random.choice(["reason_prefix", "reason_suffix", "contrast", "sequence"])
+
+    if lang == "en":
+        reason = random.choice(DISCOURSE_REASON_EN)
+        if mode == "reason_prefix":
+            return f"because {reason}, {stripped}"
+        if mode == "reason_suffix":
+            joiner = "" if stripped.endswith((".", "!", "?")) else ""
+            return f"{stripped}{joiner}, because {reason}"
+        if mode == "contrast":
+            return f"{random.choice(DISCOURSE_CONTRAST_EN)} {stripped}"
+        return f"{random.choice(DISCOURSE_SEQUENCE_EN)} {stripped}"
+
+    reason = random.choice(DISCOURSE_REASON_ZH)
+    if mode == "reason_prefix":
+        return f"因為{reason}，{stripped}"
+    if mode == "reason_suffix":
+        return f"{stripped}，因為{reason}"
+    if mode == "contrast":
+        return f"{random.choice(DISCOURSE_CONTRAST_ZH)}{stripped}"
+    return f"{random.choice(DISCOURSE_SEQUENCE_ZH)}{stripped}"
+
+
+def inject_micro_rephrase(text: str, lang: str, prob: float = DEFAULT_REPHRASE_PROB) -> str:
+    """Apply one lexical paraphrase to increase variety while preserving meaning."""
+    if random.random() > prob:
+        return text
+
+    pairs = EN_REPHRASE_PAIRS if lang == "en" else ZH_REPHRASE_PAIRS
+    random.shuffle(pairs)
+    lowered = text.lower()
+
+    for src, dst in pairs:
+        if lang == "en":
+            if src in lowered:
+                idx = lowered.find(src)
+                return text[:idx] + dst + text[idx + len(src):]
+        else:
+            if src in text:
+                return text.replace(src, dst, 1)
+
+    return text
+
+
+def inject_punctuation_variation(text: str, lang: str, prob: float = DEFAULT_PUNCTUATION_VARIATION_PROB) -> str:
+    """Add punctuation style variation to diversify surface forms."""
+    if random.random() > prob:
+        return text
+
+    stripped = text.strip()
+    if not stripped:
+        return text
+
+    if stripped.endswith((".", "!", "?", "。", "！", "？", "…")):
+        return text
+
+    if lang == "en":
+        return stripped + random.choice([".", "!", "..."])
+    return stripped + random.choice(["。", "！", "…"])
+
+
 def humanize_text(
     text: str,
     lang: str,
     noise_prob: float = DEFAULT_COMMAND_NOISE_PROB,
     semantic_prob: float = DEFAULT_SEMANTIC_CONTEXT_PROB,
+    discourse_prob: float = DEFAULT_DISCOURSE_VARIATION_PROB,
+    rephrase_prob: float = DEFAULT_REPHRASE_PROB,
+    punctuation_prob: float = DEFAULT_PUNCTUATION_VARIATION_PROB,
 ) -> str:
     """Add natural speech patterns such as fillers, prefixes, suffixes, code-switching."""
     text = apply_code_switching(text, lang)
+    text = inject_discourse_variation(text, lang, prob=discourse_prob)
     text = inject_semantic_context(text, lang, prob=semantic_prob)
+    text = inject_micro_rephrase(text, lang, prob=rephrase_prob)
     text = inject_hesitation_and_correction(text, lang)
     text = inject_time_expression(text, lang, prob=0.12)
     text = inject_asr_noise(text, lang, prob=noise_prob)
     text = inject_token_drop(text, lang, prob=noise_prob * 0.55)
     text = inject_restart(text, lang, prob=noise_prob * 0.35)
+    text = inject_punctuation_variation(text, lang, prob=punctuation_prob)
     
     if random.random() > 0.60:
         return text
@@ -466,7 +596,6 @@ def make_slots(**kwargs) -> Dict[str, Any]:
     return {
         "device": kwargs.get("device"),
         "value": str(kwargs.get("value")) if kwargs.get("value") is not None else None,
-        "value_num": float(kwargs.get("value")) if isinstance(kwargs.get("value"), (int, float)) else None,
         "unit": kwargs.get("unit"),
         "mode": kwargs.get("mode"),
         "scene": kwargs.get("scene"),
@@ -1443,9 +1572,7 @@ def gen_media() -> Example:
 
     raw_text = humanize_text(st, lang)
     
-    # BugFix: Follow Rule 2 explicitly! Only provide device if it's literally in the base string.
-    actually_mentioned = dev_word in st
-    slots = make_slots(device=media_type if actually_mentioned else None)
+    slots = make_slots(device=media_type)
     
     return emit_command("media", action, "default", None, slots, raw_text)
 
@@ -1976,7 +2103,11 @@ def mutate_example(ex: Example, attempts: int) -> Example:
     lang = "zh" if any(ord(c) > 128 for c in ex.raw_text) else "en"
 
     if attempts >= 3:
+        ex.raw_text = inject_discourse_variation(ex.raw_text, lang, prob=0.90)
         ex.raw_text = inject_semantic_context(ex.raw_text, lang, prob=0.90)
+    if attempts >= 4:
+        ex.raw_text = inject_micro_rephrase(ex.raw_text, lang, prob=0.95)
+        ex.raw_text = inject_punctuation_variation(ex.raw_text, lang, prob=0.95)
     
     if attempts >= 2:
         additions_zh = ["拜託", "謝謝", "快點", "喔", "好嗎"]

@@ -83,7 +83,6 @@ def parse_command_llm_safe(text: str) -> dict:
         "slots": {
             "device": None,
             "value": None,
-            "value_num": None,
             "unit": None,
             "mode": None,
             "scene": None,

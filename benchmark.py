@@ -14,7 +14,7 @@ SYSTEM_PROMPT = """You are a smart home intent parser. Translate the user's inpu
 
 Rules:
 1. If no specific room is mentioned, set "target" to "default".
-2. If the device is not explicitly named, set "slots.device" to null.
+2. Infer "slots.device" when the intent implies one (for example: channel -> tv, temperature/cooling/heating -> thermostat). Use null only when genuinely ambiguous.
 3. If the input is NOT a direct command, set "type" to "transcript", "domain" to "unknown", and "action" to "none".
 4. Always include all fields in the JSON, using null for any unspecified values.
 """
@@ -49,15 +49,21 @@ OOD_HARDCODED_DATASET = Path(__file__).with_name("ood_hardcoded_100.jsonl")
 SLOTS_TEMPLATE = {
     "device": None,
     "value": None,
-    "value_num": None,
     "unit": None,
     "mode": None,
     "scene": None,
 }
 
+ALLOWED_SLOT_KEYS = tuple(SLOTS_TEMPLATE.keys())
+
+
+def normalize_slots(slots: dict) -> dict:
+    """Normalize slots to canonical keys and drop legacy or extra keys."""
+    slots = slots or {}
+    return {k: slots.get(k, default) for k, default in SLOTS_TEMPLATE.items()}
+
 def row_to_target_json(row: dict) -> dict:
-    slots = row.get("slots") or {}
-    norm_slots = {**SLOTS_TEMPLATE, **slots}
+    norm_slots = normalize_slots(row.get("slots"))
 
     obj = {
         "type": row.get("type"),
@@ -148,17 +154,19 @@ STRICT_SCHEMA = {
             "properties": {
                 "device": {"type": ["string", "null"]},
                 "value": {"type": ["string", "null"]},
-                "value_num": {"type": ["number", "null"]},
                 "unit": {
                     "type": ["string", "null"],
                     "enum": ["celsius", "percent", "seconds", "minutes", "hours", None]
                 },
                 "mode": {"type": ["string", "null"]},
                 "scene": {"type": ["string", "null"]}
-            }
+            },
+            "required": list(ALLOWED_SLOT_KEYS),
+            "additionalProperties": False,
         }
     },
-    "required": ["type", "domain", "action", "target", "slots"]
+    "required": ["type", "domain", "action", "target", "slots"],
+    "additionalProperties": False,
 }
 
 
@@ -524,6 +532,7 @@ Examples:
             # Strip any extra fields the model might output
             for k in ("confidence", "raw_text"):
                 c.pop(k, None)
+            c["slots"] = normalize_slots(c.get("slots"))
             return c
 
         pred_clean = clean(pred)

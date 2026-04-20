@@ -23,11 +23,10 @@ target-value ::= "\"bathroom\"" | "\"kitchen\"" | "\"bedroom\"" | "\"living_room
 state-value ::= "\"on\"" | "\"off\"" | "\"open\"" | "\"close\"" | "null"
 
 # Slots object
-slots-object ::= "{" ws device-kv "," ws value-kv "," ws value-num-kv "," ws unit-kv "," ws mode-kv "," ws scene-kv ws "}"
+slots-object ::= "{" ws device-kv "," ws value-kv "," ws unit-kv "," ws mode-kv "," ws scene-kv ws "}"
 
 device-kv ::= "\"device\"" ws ":" ws device-value
 value-kv ::= "\"value\"" ws ":" ws (string | "null")
-value-num-kv ::= "\"value_num\"" ws ":" ws (number | "null")
 unit-kv ::= "\"unit\"" ws ":" ws unit-value
 mode-kv ::= "\"mode\"" ws ":" ws (string | "null")
 scene-kv ::= "\"scene\"" ws ":" ws (string | "null")
