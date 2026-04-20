@@ -201,6 +201,43 @@ INTENSITY_ZH = ["很", "非常", "有點", "稍微", "完全"]
 DEFAULT_COMMAND_NOISE_PROB = 0.12
 DEFAULT_TRANSCRIPT_NOISE_PROB = 0.04
 DEFAULT_NEGATIVE_NOISE_PROB = 0.06
+DEFAULT_SEMANTIC_CONTEXT_PROB = 0.20
+
+SEMANTIC_PREFIXES_EN = [
+    "if possible, ", "when you get a moment, ", "for tonight, ",
+    "before everyone arrives, ", "since guests are coming soon, ",
+    "for my normal routine, ", "as soon as you can, ", "while I'm tied up, ",
+    "before I forget, ", "for the next little while, ",
+    "to keep things comfortable, ",
+]
+SEMANTIC_SUFFIXES_EN = [
+    ", before everyone gets back", ", for my usual routine",
+    ", so things stay comfortable", ", since I'm stepping out soon",
+    ", because I'm multitasking right now", ", so it's sorted ahead of time",
+    ", for the next little while", ", before I forget again",
+    ", while I'm busy with something else",
+]
+SEMANTIC_QUESTION_PREFIXES_EN = [
+    "quick check: ", "just checking: ", "small question: ", "one quick thing: ",
+]
+SEMANTIC_QUESTION_SUFFIXES_EN = [
+    ", I'm trying to plan ahead", ", just making sure", ", so I can plan the next step",
+]
+
+SEMANTIC_PREFIXES_ZH = [
+    "如果方便的話，", "有空的時候，", "先麻煩你，", "趁現在，", "我等等要出門，",
+    "先幫我處理一下，", "待會會用到，", "順手幫我，", "先安排一下，",
+]
+SEMANTIC_SUFFIXES_ZH = [
+    "，免得我忘記", "，先這樣就好", "，這樣比較方便", "，等一下會用到", "，先處理好",
+    "，我正在忙別的事", "，我等等要出門", "，先幫我排好", "，先維持一下", "，這樣比較安心",
+]
+SEMANTIC_QUESTION_PREFIXES_ZH = [
+    "順便問一下，", "我確認一下，", "我先問個問題，", "快速確認一下，",
+]
+SEMANTIC_QUESTION_SUFFIXES_ZH = [
+    "，我只是先確認", "，我想先搞清楚", "，先確認一下",
+]
 
 # Helpers
 
@@ -353,9 +390,51 @@ def inject_restart(text: str, lang: str, prob: float = 0.0) -> str:
     return f"{snippet}...{text}"
 
 
-def humanize_text(text: str, lang: str, noise_prob: float = DEFAULT_COMMAND_NOISE_PROB) -> str:
+def inject_semantic_context(text: str, lang: str, prob: float = DEFAULT_SEMANTIC_CONTEXT_PROB) -> str:
+    """
+    Add lightweight semantic context (intent-preserving) while keeping language to zh/en only.
+    Avoids heavy edits on very short phrases to reduce label drift for ambiguous utterances.
+    """
+    if random.random() > prob:
+        return text
+
+    stripped = text.strip()
+    if not stripped:
+        return text
+
+    if lang == "en":
+        if len(stripped.split()) <= 2 and random.random() < 0.85:
+            return text
+    else:
+        if len(stripped) <= 3 and random.random() < 0.85:
+            return text
+
+    is_question = stripped.endswith("?") or stripped.endswith("？")
+
+    if lang == "zh":
+        prefixes = SEMANTIC_QUESTION_PREFIXES_ZH if is_question else SEMANTIC_PREFIXES_ZH
+        suffixes = SEMANTIC_QUESTION_SUFFIXES_ZH if is_question else SEMANTIC_SUFFIXES_ZH
+    else:
+        prefixes = SEMANTIC_QUESTION_PREFIXES_EN if is_question else SEMANTIC_PREFIXES_EN
+        suffixes = SEMANTIC_QUESTION_SUFFIXES_EN if is_question else SEMANTIC_SUFFIXES_EN
+
+    mode = random.choices(["prefix", "suffix", "both"], weights=[0.45, 0.35, 0.20], k=1)[0]
+    if mode == "prefix":
+        return f"{random.choice(prefixes)}{stripped}"
+    if mode == "suffix":
+        return f"{stripped}{random.choice(suffixes)}"
+    return f"{random.choice(prefixes)}{stripped}{random.choice(suffixes)}"
+
+
+def humanize_text(
+    text: str,
+    lang: str,
+    noise_prob: float = DEFAULT_COMMAND_NOISE_PROB,
+    semantic_prob: float = DEFAULT_SEMANTIC_CONTEXT_PROB,
+) -> str:
     """Add natural speech patterns such as fillers, prefixes, suffixes, code-switching."""
     text = apply_code_switching(text, lang)
+    text = inject_semantic_context(text, lang, prob=semantic_prob)
     text = inject_hesitation_and_correction(text, lang)
     text = inject_time_expression(text, lang, prob=0.12)
     text = inject_asr_noise(text, lang, prob=noise_prob)
@@ -1363,7 +1442,11 @@ def gen_media() -> Example:
         st = random.choice(structures)
 
     raw_text = humanize_text(st, lang)
-    slots = make_slots(device=media_type)
+    
+    # BugFix: Follow Rule 2 explicitly! Only provide device if it's literally in the base string.
+    actually_mentioned = dev_word in st
+    slots = make_slots(device=media_type if actually_mentioned else None)
+    
     return emit_command("media", action, "default", None, slots, raw_text)
 
 
@@ -1891,6 +1974,9 @@ def compute_text_hash(text: str) -> str:
 
 def mutate_example(ex: Example, attempts: int) -> Example:
     lang = "zh" if any(ord(c) > 128 for c in ex.raw_text) else "en"
+
+    if attempts >= 3:
+        ex.raw_text = inject_semantic_context(ex.raw_text, lang, prob=0.90)
     
     if attempts >= 2:
         additions_zh = ["拜託", "謝謝", "快點", "喔", "好嗎"]
