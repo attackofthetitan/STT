@@ -1577,6 +1577,96 @@ def gen_media() -> Example:
     return emit_command("media", action, "default", None, slots, raw_text)
 
 
+def gen_meta_command_negative() -> Example:
+    """
+    Generate command-like utterances that explicitly say not to execute.
+    These are the hard boundary cases where quoted, canceled, or discussed
+    commands should remain transcripts.
+    """
+    lang = "zh" if random.random() < 0.55 else "en"
+
+    if lang == "zh":
+        command_like = random.choice([
+            "暫停電視", "把電視暫停", "停止電視", "把電視停掉",
+            "開燈", "把燈打開", "關燈", "把燈關掉",
+            "開窗簾", "把窗簾打開", "關窗簾", "把窗簾關上",
+            "設兩秒計時器", "設定計時器", "調低電視音量",
+        ])
+        templates = [
+            f"我說「{command_like}」只是在舉例，不是要你操作",
+            f"{command_like}那句只是示範說法，別真的執行",
+            f"剛才{command_like}那句取消，請忽略",
+            f"我是在說{command_like}這件事，不是在下命令",
+            f"{command_like}這句不要當真，不是控制命令",
+            f"我只是念到「{command_like}」，不是叫你做",
+            f"我剛剛講{command_like}是口誤，不要動設備",
+            f"如果我說{command_like}，那也只是例子",
+            f"不是要你{command_like}，我只是聊天",
+            f"先別動，我還沒要你{command_like}",
+        ]
+    else:
+        command_like = random.choice([
+            "pause the TV", "stop the TV", "turn on the lights",
+            "turn off the lights", "open the curtains", "close the curtains",
+            "set a two second timer", "turn the TV volume down",
+        ])
+        templates = [
+            f"I said \"{command_like}\" as an example, not as a command",
+            f"The phrase \"{command_like}\" was just something I was quoting",
+            f"Cancel the part where I said {command_like}; do not execute it",
+            f"When I said {command_like}, I was explaining the wording",
+            f"Do not treat {command_like} as a device instruction",
+            f"I only read out \"{command_like}\" from the text",
+            f"I mentioned {command_like}, but I am not asking for anything",
+            f"If I say {command_like}, that is only an example",
+            f"I am not asking you to {command_like}; I am just talking",
+            f"Hold on, I am not telling you to {command_like}",
+        ]
+
+    raw_text = inject_punctuation_variation(
+        random.choice(templates),
+        lang,
+        prob=0.35,
+    )
+    return emit_transcript("unknown", "none", None, None, make_slots(), raw_text)
+
+
+def gen_contrastive_direct_command() -> Example:
+    """Generate direct commands that are close to the meta-command negatives."""
+    lang = "zh" if random.random() < 0.5 else "en"
+
+    if lang == "zh":
+        examples = [
+            ("media", "pause", "default", None, make_slots(device="tv"), ["暫停電視", "把電視暫停", "電視先暫停"]),
+            ("media", "stop", "default", None, make_slots(device="tv"), ["停止電視播放", "把電視停掉", "電視先不要播"]),
+            ("media", "set_volume", "default", None, make_slots(device="tv", mode="volume"), ["把電視音量調小", "電視聲音小一點"]),
+            ("lights", "turn_on", "default", "on", make_slots(device="light"), ["開燈", "把燈打開", "幫我開燈"]),
+            ("lights", "turn_off", "default", "off", make_slots(device="light"), ["關燈", "把燈關掉", "幫我關燈"]),
+            ("curtain", "open", "default", None, make_slots(device="curtain"), ["開窗簾", "把窗簾打開", "窗簾拉開"]),
+            ("curtain", "close", "default", None, make_slots(device="curtain"), ["關窗簾", "把窗簾關上", "窗簾拉上"]),
+            ("timer", "set_time", "default", None, make_slots(device="timer", value="2", unit="seconds"), ["設兩秒計時器", "設定兩秒倒數"]),
+        ]
+    else:
+        examples = [
+            ("media", "pause", "default", None, make_slots(device="tv"), ["pause the TV", "please pause the TV"]),
+            ("media", "stop", "default", None, make_slots(device="tv"), ["stop the TV", "stop TV playback"]),
+            ("media", "set_volume", "default", None, make_slots(device="tv", mode="volume"), ["turn the TV volume down", "make the TV quieter"]),
+            ("lights", "turn_on", "default", "on", make_slots(device="light"), ["turn on the lights", "please turn the lights on"]),
+            ("lights", "turn_off", "default", "off", make_slots(device="light"), ["turn off the lights", "please turn the lights off"]),
+            ("curtain", "open", "default", None, make_slots(device="curtain"), ["open the curtains", "please open the curtains"]),
+            ("curtain", "close", "default", None, make_slots(device="curtain"), ["close the curtains", "please close the curtains"]),
+            ("timer", "set_time", "default", None, make_slots(device="timer", value="2", unit="seconds"), ["set a two second timer", "start a two second timer"]),
+        ]
+
+    domain, action, target, state, slots, texts = random.choice(examples)
+    raw_text = inject_punctuation_variation(
+        random.choice(texts),
+        lang,
+        prob=0.25,
+    )
+    return emit_command(domain, action, target, state, slots, raw_text)
+
+
 def gen_hard_negative() -> Example:
     """Generate hard negatives that mentions devices but NOT commands."""
     lang = "zh" if random.random() < 0.5 else "en"
@@ -2122,17 +2212,19 @@ def mutate_example(ex: Example, attempts: int) -> Example:
 
 
 GENERATORS = [
-    (gen_lights, 0.10),
-    (gen_climate, 0.10),
-    (gen_vacuum, 0.10),
-    (gen_timer, 0.10),
-    (gen_curtain, 0.10),
-    (gen_fan, 0.10),
-    (gen_media, 0.10),
-    (gen_hard_negative, 0.11),
-    (gen_transcript, 0.13),
-    (gen_abandoned_correction, 0.03),  
-    (gen_ambiguous_short_phrase, 0.03),
+    (gen_lights, 0.095),
+    (gen_climate, 0.095),
+    (gen_vacuum, 0.095),
+    (gen_timer, 0.095),
+    (gen_curtain, 0.095),
+    (gen_fan, 0.095),
+    (gen_media, 0.095),
+    (gen_hard_negative, 0.10),
+    (gen_transcript, 0.09),
+    (gen_abandoned_correction, 0.04),
+    (gen_ambiguous_short_phrase, 0.025),
+    (gen_meta_command_negative, 0.06),
+    (gen_contrastive_direct_command, 0.04),
 ]
 
 
