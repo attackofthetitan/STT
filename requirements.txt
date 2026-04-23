@@ -2,6 +2,13 @@ faster-whisper
 silero-vad
 onnxruntime
 sounddevice
-numpy
+numpy==2.2.6
 scipy
 huggingface_hub
+requests
+tqdm
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.11.0+cu130
+torchvision==0.26.0+cu130
+torchaudio==2.11.0+cu130
+vllm
