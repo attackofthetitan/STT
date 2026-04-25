@@ -1,14 +1,22 @@
-import json
-import time
-import statistics
 import argparse
+import json
+import os
 import random
-import math
-import requests
-from tqdm import tqdm
+import statistics
+import time
+from collections import Counter, defaultdict
 from pathlib import Path
-from types import SimpleNamespace
+
+
+os.environ.setdefault("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
+
+from tqdm import tqdm
+from transformers import AutoTokenizer
+from vllm import LLM, SamplingParams
+from vllm.lora.request import LoRARequest
+
 from generate_smart_home_dataset import generate
+
 
 SYSTEM_PROMPT = """You are a smart home intent parser. Translate the user's input into a structured JSON command with no markdown and no explanations.
 
@@ -19,32 +27,23 @@ Rules:
 4. Always include all fields in the JSON, using null for any unspecified values.
 """
 
-def build_prompt(user_text: str) -> str:
-    return (
-        "<|im_start|>system\n" + SYSTEM_PROMPT + "<|im_end|>\n"
-        "<|im_start|>user\n" + user_text + "<|im_end|>\n"
-        "<|im_start|>assistant\n"
-    )
-
 STOP_TOKENS = ["<|im_end|>"]
-
-try:
-    from llama_cpp import Llama, LlamaGrammar
-    LLAMA_CPP_AVAILABLE = True
-except ImportError:
-    LLAMA_CPP_AVAILABLE = False
-
-try:
-    import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    TRANSFORMERS_AVAILABLE = False
-
-
-MODEL_PATH = "models/llm/smarthome-json-mega-v4.1-bf16.gguf"
-TEST_SAMPLES = 500
+DEFAULT_MODEL = str(
+    Path(__file__).parent
+    / "private"
+    / "finetune"
+    / "artifacts"
+    / "qwen35_08b_base_full_sft"
+)
+DEFAULT_SAMPLES_PER_SOURCE = 1000
+DEFAULT_MAX_MODEL_LEN = 512
+DEFAULT_MAX_NEW_TOKENS = 128
+DEFAULT_BATCH_SIZE = 64
+DEFAULT_MAX_NUM_SEQS = 256
+DEFAULT_MAX_NUM_BATCHED_TOKENS = 8192
+DEFAULT_GPU_MEMORY_UTILIZATION = 0.85
 OOD_HARDCODED_DATASET = Path(__file__).with_name("ood_hardcoded_100.jsonl")
+SOURCE_KEY = "_eval_source"
 
 SLOTS_TEMPLATE = {
     "device": None,
@@ -54,661 +53,386 @@ SLOTS_TEMPLATE = {
     "scene": None,
 }
 
-ALLOWED_SLOT_KEYS = tuple(SLOTS_TEMPLATE.keys())
+
+def normalize_slots(slots: dict | None) -> dict:
+    if not isinstance(slots, dict):
+        slots = {}
+    return {key: slots.get(key, default) for key, default in SLOTS_TEMPLATE.items()}
 
 
-def normalize_slots(slots: dict) -> dict:
-    """Normalize slots to canonical keys and drop legacy or extra keys."""
-    slots = slots or {}
-    return {k: slots.get(k, default) for k, default in SLOTS_TEMPLATE.items()}
-
-def row_to_target_json(row: dict) -> dict:
-    norm_slots = normalize_slots(row.get("slots"))
-
-    obj = {
-        "type": row.get("type"),
-        "domain": row.get("domain"),
-        "action": row.get("action"),
-        "target": row.get("target"),
-        "state": row.get("state"),
-        "slots": norm_slots,
-    }
-
-    return obj
+def sample_jsonl(path: Path, sample_count: int) -> list[dict]:
+    with path.open("r", encoding="utf-8") as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    return random.sample(rows, sample_count)
 
 
-def row_from_item(item) -> dict:
-    if isinstance(item, dict):
-        return item
-    if hasattr(item, "__dict__"):
-        return item.__dict__
-    raise TypeError(f"Unsupported sample type: {type(item)}")
-
-
-def load_examples_from_jsonl(path: Path, sample_count: int, allow_repeat: bool = True) -> list:
-    if not path.exists():
-        raise FileNotFoundError(f"Dataset not found: {path}")
-
-    rows = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rows.append(json.loads(line))
-
-    if not rows:
-        raise ValueError(f"Dataset is empty: {path}")
-
-    if sample_count <= len(rows):
-        picked = random.sample(rows, sample_count)
-    else:
-        if allow_repeat:
-            picked = rows.copy()
-            while len(picked) < sample_count:
-                picked.append(random.choice(rows))
-        else:
-            print(f"⚠️  Requested {sample_count} samples but dataset has only {len(rows)} unique rows. Using all rows.")
-            picked = rows.copy()
-
-    return [SimpleNamespace(**row) for row in picked]
-
-STRICT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "type": {
-            "type": "string",
-            "enum": ["command", "transcript"]
-        },
-        "domain": {
-            "type": "string",
-            "enum": [
-                "lights", "climate", "vacuum", "timer", 
-                "curtain", "fan", "media", "unknown"
-            ]
-        },
-        "action": {
-            "type": "string",
-            "enum": [
-                "turn_on", "turn_off", "set", "open", "close", 
-                "start", "stop", "pause", "dock", "set_speed", 
-                "set_volume", "set_time", "set_position",
-                "channel_change", "play", "next", "previous", "none"
-            ]
-        },
-        "target": {
-            "type": ["string", "null"],
-            "enum": [
-                "bathroom", "kitchen", "bedroom", "living_room", 
-                "dining_room", "study", "balcony", "hallway", 
-                "entryway", "garage", "basement", "attic", 
-                "laundry_room", "closet", "guest_room", "nursery", 
-                "default", None
-            ]
-        },
-        "state": {
-            "type": ["string", "null"]
-        },
-        "slots": {
-            "type": "object",
-            "properties": {
-                "device": {"type": ["string", "null"]},
-                "value": {"type": ["string", "null"]},
-                "unit": {
-                    "type": ["string", "null"],
-                    "enum": ["celsius", "percent", "seconds", "minutes", "hours", None]
-                },
-                "mode": {"type": ["string", "null"]},
-                "scene": {"type": ["string", "null"]}
-            },
-            "required": list(ALLOWED_SLOT_KEYS),
-            "additionalProperties": False,
-        }
-    },
-    "required": ["type", "domain", "action", "target", "slots"],
-    "additionalProperties": False,
-}
-
-
-# =============================================================================
-# INFERENCE BACKENDS
-# =============================================================================
-
-class LocalLlamaBackend:
-    """Local llama-cpp-python backend."""
-    
-    def __init__(self, model_path: str, use_grammar: bool = False, max_new_tokens: int = 256):
-        if not LLAMA_CPP_AVAILABLE:
-            raise RuntimeError("llama-cpp-python not installed. Use --server instead.")
-        self.max_new_tokens = max_new_tokens
-        
-        self.llm = Llama(
-            model_path=str(model_path),
-            n_ctx=1024,
-            n_gpu_layers=-1,
-            verbose=False,
-            flash_attn=True,
-            n_batch=2048,
-            n_ubatch=2048,
-        )
-        
-        self.grammar = None
-        if use_grammar:
-            self.grammar = LlamaGrammar.from_json_schema(json.dumps(STRICT_SCHEMA))
-    
-    def generate(self, prompt: str) -> tuple[str, int]:
-        """Generate response. Returns (text, completion_tokens)."""
-        output = self.llm(
-            prompt,
-            max_tokens=self.max_new_tokens,
-            temperature=0.0,
-            stop=STOP_TOKENS,
-            grammar=self.grammar,
-            echo=False,
-            top_k=64,
-            top_p=0.95,
-        )
-        
-        text = output["choices"][0]["text"].strip()
-        tokens = output["usage"]["completion_tokens"]
-        return text, tokens
-
-
-class LlamaServerBackend:
-    """Remote llama.cpp server backend."""
-    
-    def __init__(self, server_url: str, use_grammar: bool = False, max_new_tokens: int = 256):
-        self.server_url = server_url.rstrip("/")
-        self.use_grammar = use_grammar
-        self.max_new_tokens = max_new_tokens
-        
-        # Test connection
-        try:
-            resp = requests.get(f"{self.server_url}/health", timeout=5)
-            if resp.status_code != 200:
-                print(f"⚠️  Server health check returned {resp.status_code}")
-        except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Cannot connect to server at {server_url}: {e}")
-    
-    def generate(self, prompt: str) -> tuple[str, int]:
-        """Generate response. Returns (text, completion_tokens)."""
-        payload = {
-            "prompt": prompt,
-            "n_predict": self.max_new_tokens,
-            "temperature": 0.0,
-            "stop": STOP_TOKENS,
-        }
-        
-        if self.use_grammar:
-            payload["json_schema"] = STRICT_SCHEMA
-        
-        try:
-            resp = requests.post(
-                f"{self.server_url}/completion",
-                json=payload,
-                timeout=60
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            
-            text = data.get("content", "").strip()
-            tokens = data.get("tokens_predicted", len(text) // 4)
-            return text, tokens
-            
-        except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Server request failed: {e}")
-
-
-class OpenAICompatibleBackend:
-    """OpenAI-compatible API backend (works with llama.cpp server --api-key)."""
-    
-    def __init__(self, server_url: str, api_key: str = None, use_grammar: bool = False, max_new_tokens: int = 256):
-        self.server_url = server_url.rstrip("/")
-        self.api_key = api_key
-        self.use_grammar = use_grammar
-        self.max_new_tokens = max_new_tokens
-        
-    def generate(self, prompt: str) -> tuple[str, int]:
-        """Generate response using OpenAI-compatible /v1/completions endpoint."""
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        
-        payload = {
-            "prompt": prompt,
-            "max_tokens": self.max_new_tokens,
-            "temperature": 0.0,
-            "stop": STOP_TOKENS,
-        }
-        
-        if self.use_grammar:
-            payload["json_schema"] = STRICT_SCHEMA
-        
-        try:
-            resp = requests.post(
-                f"{self.server_url}/v1/completions",
-                json=payload,
-                headers=headers,
-                timeout=60
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            
-            text = data["choices"][0]["text"].strip()
-            tokens = data.get("usage", {}).get("completion_tokens", len(text) // 4)
-            return text, tokens
-            
-        except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"API request failed: {e}")
-
-
-class HuggingFaceBackend:
-    """Hugging Face Transformers backend."""
-    
-    def __init__(self, model_path: str, max_new_tokens: int = 128, compile_model: bool = False):
-        if not TRANSFORMERS_AVAILABLE:
-            raise RuntimeError("transformers or torch not installed. Please pip install torch transformers")
-
-        self.max_new_tokens = max_new_tokens
-
-        if torch.cuda.is_available():
-            torch.set_float32_matmul_precision("high")
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
-
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-        self.tokenizer.padding_side = "left"
-
-        if self.tokenizer.pad_token_id is None and self.tokenizer.eos_token is not None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            device_map="auto",
-            torch_dtype="auto",
-            trust_remote_code=True
-        )
-        self.model.eval()
-
-        if compile_model and hasattr(torch, "compile"):
-            try:
-                self.model = torch.compile(self.model, mode="reduce-overhead", fullgraph=False)
-                print("🔹 HF torch.compile: ENABLED")
-            except Exception as e:
-                print(f"⚠️  HF torch.compile unavailable ({e}); continuing without compile")
-
-        self.stop_token_ids = []
-        unk = self.tokenizer.unk_token_id
-        for stop in STOP_TOKENS:
-            stop_id = self.tokenizer.convert_tokens_to_ids(stop)
-            if isinstance(stop_id, int) and stop_id >= 0 and stop_id != unk:
-                self.stop_token_ids.append(stop_id)
-
-        if self.tokenizer.eos_token_id is not None:
-            self.stop_token_ids.append(self.tokenizer.eos_token_id)
-
-        self.stop_token_ids = sorted(set(self.stop_token_ids))
-
-    def _generate_outputs(self, inputs):
-        eos_token_id = self.stop_token_ids if self.stop_token_ids else self.tokenizer.eos_token_id
-
-        generate_kwargs = {
-            "max_new_tokens": self.max_new_tokens,
-            "do_sample": False,
-            "use_cache": True,
-            "pad_token_id": self.tokenizer.pad_token_id,
-            "eos_token_id": eos_token_id,
-        }
-
-        # Static KV cache can improve iterative decode throughput on many models.
-        generate_kwargs["cache_implementation"] = "static"
-
-        with torch.inference_mode():
-            try:
-                return self.model.generate(**inputs, **generate_kwargs)
-            except Exception as e:
-                # Some models/transformers versions do not support static cache with custom attention.
-                if "cache_implementation" not in generate_kwargs:
-                    raise
-
-                generate_kwargs.pop("cache_implementation", None)
-                try:
-                    return self.model.generate(**inputs, **generate_kwargs)
-                except Exception:
-                    # Re-raise the original exception context for easier debugging.
-                    raise e
-
-    def generate_batch(self, prompts) -> list[tuple[str, int]]:
-        """Generate responses for a prompt batch. Returns [(text, completion_tokens), ...]."""
-        if not prompts:
-            return []
-
-        inputs = self.tokenizer(
-            prompts,
-            return_tensors="pt",
-            add_special_tokens=False,
-            padding=True,
-            truncation=True,
-        ).to(self.model.device)
-
-        prompt_len = int(inputs["input_ids"].shape[1])
-        outputs = self._generate_outputs(inputs)
-        gen_tokens = outputs[:, prompt_len:]
-
-        out = []
-        for row in gen_tokens:
-            if self.tokenizer.pad_token_id is not None:
-                row = row[row != self.tokenizer.pad_token_id]
-
-            text = self.tokenizer.decode(row, skip_special_tokens=False)
-            for stop in STOP_TOKENS:
-                if stop in text:
-                    text = text.split(stop)[0]
-
-            out.append((text.strip(), int(row.shape[0])))
-
-        return out
-
-    def generate(self, prompt: str) -> tuple[str, int]:
-        """Generate response."""
-        return self.generate_batch([prompt])[0]
-
-
-# =============================================================================
-# MAIN BENCHMARK
-# =============================================================================
-
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Smart Home Intent Parser Benchmark",
+        description="Smart home intent parser benchmark using vLLM.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Local model (default)
+  # Default: 1000 generated + 1000 OOD samples
   python benchmark.py
 
-        # Out-of-domain benchmark set (fixed 100 hardcoded cases)
-    python benchmark.py --eval-set ood
+  # Benchmark only the hardcoded OOD set
+  python benchmark.py --eval-set ood
 
-    # Benchmark from prebuilt JSONL dataset
-    python benchmark.py --dataset smart_home_ood_test.jsonl --samples 500
-  
-  # Local model with grammar
-  python benchmark.py --grammar
-  
-  # Remote llama.cpp server
-  python benchmark.py --server http://localhost:8080
-  
-  # Remote server with grammar
-  python benchmark.py --server http://localhost:8080 --grammar
-  
-  # OpenAI-compatible API
-  python benchmark.py --server http://localhost:8080 --openai-compat
-  
-  # Custom model path and samples
-  python benchmark.py --model ./my-model.gguf --samples 1000
-  
-  # HuggingFace Backend
-  python benchmark.py --hf --model ./qwen35_08b_base_full_sft
-        """
+  # Benchmark a LoRA adapter
+  python benchmark.py --model Qwen/Qwen3.5-2B-Base --lora private/finetune/artifacts/qwen35_2b_base_lora_sft
+
+  # Benchmark a prebuilt JSONL dataset
+  python benchmark.py --dataset smart_home_ood_test.jsonl --samples 500
+        """,
     )
-    
-    parser.add_argument("--model", default=MODEL_PATH, help="Path to GGUF model or HF directory (for local mode)")
-    parser.add_argument("--server", help="llama.cpp server URL (e.g., http://localhost:8080)")
-    parser.add_argument("--api-key", help="API key for server authentication")
-    parser.add_argument("--openai-compat", action="store_true", help="Use OpenAI-compatible /v1/completions endpoint")
-    parser.add_argument("--grammar", action="store_true", help="Enable grammar constraints")
-    parser.add_argument("--hf", action="store_true", help="Use local HuggingFace Transformers backend")
-    parser.add_argument("--hf-compile", action="store_true", help="Enable torch.compile for HF backend (may increase startup time)")
-    parser.add_argument("--hf-batch-size", type=int, default=1, help="HF batch size for throughput tuning (>=1)")
-    parser.add_argument("--max-new-tokens", type=int, default=128, help="Maximum generated tokens per sample")
-    parser.add_argument("--samples", type=int, default=TEST_SAMPLES, help="Number of test samples")
-    parser.add_argument("--eval-set", choices=["in_domain", "ood"], default="in_domain", help="Sample source when --dataset is not provided")
-    parser.add_argument("--dataset", help="Path to JSONL eval dataset (overrides --eval-set)")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for sampling")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="HF model ID or local model directory")
+    parser.add_argument("--lora", help="Path to a LoRA adapter to apply with vLLM")
+    parser.add_argument("--max-lora-rank", type=int, default=64, help="Maximum LoRA rank for vLLM")
+    parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE, help="Number of prompts to submit per vLLM call")
+    parser.add_argument("--samples", type=int, default=DEFAULT_SAMPLES_PER_SOURCE, help="Number of samples per eval source")
+    parser.add_argument(
+        "--eval-set",
+        choices=["generated", "in_domain", "ood", "both"],
+        default="both",
+        help="'both' uses --samples generated and --samples OOD",
+    )
+    parser.add_argument("--dataset", help="Path to JSONL eval dataset; overrides --eval-set")
     parser.add_argument("--output", default="failures.json", help="Output file for failures")
-    
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for sampling")
+    parser.add_argument("--max-new-tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS, help="Maximum generated tokens per sample")
+    parser.add_argument("--max-model-len", type=int, default=DEFAULT_MAX_MODEL_LEN, help="vLLM max model length")
+    parser.add_argument("--max-num-seqs", type=int, default=DEFAULT_MAX_NUM_SEQS, help="vLLM max number of concurrent sequences")
+    parser.add_argument(
+        "--max-num-batched-tokens",
+        type=int,
+        default=DEFAULT_MAX_NUM_BATCHED_TOKENS,
+        help="vLLM scheduler token budget per batch",
+    )
+    parser.add_argument("--tensor-parallel-size", type=int, default=1, help="vLLM tensor parallel size")
+    parser.add_argument(
+        "--gpu-memory-utilization",
+        type=float,
+        default=DEFAULT_GPU_MEMORY_UTILIZATION,
+        help="vLLM GPU memory utilization",
+    )
+    parser.add_argument("--dtype", default="auto", help="vLLM dtype, e.g. auto, bfloat16, float16")
+    parser.add_argument("--enforce-eager", action="store_true", help="Disable vLLM CUDA graphs")
     args = parser.parse_args()
-
-    if args.hf_batch_size < 1:
-        parser.error("--hf-batch-size must be >= 1")
-    
-    # Initialize backend
-    if args.server:
-        if args.openai_compat:
-            print(f"🔹 Using OpenAI-compatible API: {args.server}")
-            backend = OpenAICompatibleBackend(args.server, args.api_key, args.grammar, args.max_new_tokens)
-        else:
-            print(f"🔹 Using llama.cpp server: {args.server}")
-            backend = LlamaServerBackend(args.server, args.grammar, args.max_new_tokens)
-    elif args.hf:
-        print(f"🔹 Loading HuggingFace Model: {args.model}")
-        backend = HuggingFaceBackend(args.model, max_new_tokens=args.max_new_tokens, compile_model=args.hf_compile)
-    else:
-        print(f"🔹 Loading Local llama.cpp Model: {args.model}")
-        backend = LocalLlamaBackend(args.model, args.grammar, args.max_new_tokens)
-    
-    if args.grammar:
-        print("🔹 Grammar constraints: ENABLED ✓")
-    else:
-        print("🔹 Grammar constraints: DISABLED")
 
     random.seed(args.seed)
 
+    rows = []
     if args.dataset:
-        dataset_path = Path(args.dataset)
-        print(f"🔹 Loading {args.samples} test samples from dataset: {dataset_path}")
-        raw_data = load_examples_from_jsonl(dataset_path, args.samples)
+        print(f"INFO: Loading {args.samples} test samples from dataset: {args.dataset}")
+        for row in sample_jsonl(Path(args.dataset), args.samples):
+            row[SOURCE_KEY] = "dataset"
+            rows.append(row)
     elif args.eval_set == "ood":
-        print(f"🔹 Loading out-of-domain samples from fixed hardcoded set: {OOD_HARDCODED_DATASET}")
-        raw_data = load_examples_from_jsonl(OOD_HARDCODED_DATASET, args.samples, allow_repeat=False)
+        print(f"INFO: Loading {args.samples} OOD samples from fixed set: {OOD_HARDCODED_DATASET}")
+        for row in sample_jsonl(OOD_HARDCODED_DATASET, args.samples):
+            row[SOURCE_KEY] = "ood"
+            rows.append(row)
+    elif args.eval_set == "both":
+        print(f"INFO: Generating {args.samples} in-domain test samples...")
+        for item in generate(args.samples):
+            row = item.copy() if isinstance(item, dict) else vars(item).copy()
+            row[SOURCE_KEY] = "generated"
+            rows.append(row)
+
+        print(f"INFO: Loading {args.samples} OOD samples from fixed set: {OOD_HARDCODED_DATASET}")
+        ood_rows = sample_jsonl(OOD_HARDCODED_DATASET, args.samples)
+        for row in ood_rows:
+            row[SOURCE_KEY] = "ood"
+            rows.append(row)
+
+        print(f"INFO: Combined eval set: {args.samples} generated + {len(ood_rows)} OOD = {len(rows)} total")
     else:
-        print(f"🔹 Generating {args.samples} in-domain test samples...")
-        raw_data = generate(args.samples)
-    
-    metrics = {
-        "total": 0,
-        "valid_json": 0,
-        "intent_match": 0,
-        "slot_match": 0,
+        print(f"INFO: Generating {args.samples} in-domain test samples...")
+        for item in generate(args.samples):
+            row = item.copy() if isinstance(item, dict) else vars(item).copy()
+            row[SOURCE_KEY] = "generated"
+            rows.append(row)
+
+    tokenizer_source = args.lora or args.model
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_source, trust_remote_code=True)
+    stop_token_ids = [tokenizer.convert_tokens_to_ids(token) for token in STOP_TOKENS]
+    if tokenizer.eos_token_id not in stop_token_ids:
+        stop_token_ids.append(tokenizer.eos_token_id)
+    print(f"INFO: vLLM stop token ids: {stop_token_ids}")
+
+    model_path = Path(args.model)
+    model_config = json.loads((model_path / "config.json").read_text()) if (model_path / "config.json").exists() else {}
+    model_markers = [
+        str(args.model),
+        " ".join(model_config.get("architectures") or []),
+        str(model_config.get("model_type") or ""),
+        str((model_config.get("text_config") or {}).get("model_type") or ""),
+    ]
+    is_qwen35 = any(
+        "qwen3.5" in marker.lower() or "qwen35" in marker.lower() or "qwen3_5" in marker.lower()
+        for marker in model_markers
+    )
+
+    if is_qwen35:
+        from vllm.model_executor.models import qwen3_5
+        from vllm.model_executor.models.registry import ModelRegistry
+
+        def get_text_only_mrope_positions(self, input_tokens, mm_features):
+            if mm_features:
+                raise ValueError("Text-only Qwen3.5 benchmark does not support multimodal inputs.")
+            import torch
+
+            positions = torch.arange(len(input_tokens), dtype=torch.long)
+            return positions.unsqueeze(0).expand(3, -1), 0
+
+        for cls in (qwen3_5.Qwen3_5ForCausalLMBase, qwen3_5.Qwen3_5ForCausalLM):
+            cls.is_hybrid = True
+            cls.supports_mrope = True
+            cls.get_mrope_input_positions = get_text_only_mrope_positions
+            cls.get_mamba_state_dtype_from_config = classmethod(
+                qwen3_5.Qwen3_5ForConditionalGeneration.get_mamba_state_dtype_from_config.__func__
+            )
+            cls.get_mamba_state_shape_from_config = classmethod(
+                qwen3_5.Qwen3_5ForConditionalGeneration.get_mamba_state_shape_from_config.__func__
+            )
+            cls.get_mamba_state_copy_func = classmethod(
+                qwen3_5.Qwen3_5ForConditionalGeneration.get_mamba_state_copy_func.__func__
+            )
+
+        original_load_weights = qwen3_5.Qwen3_5ForCausalLMBase.load_weights
+
+        def load_weights_with_prefix_fix(self, weights):
+            def remap_weights():
+                for name, tensor in weights:
+                    if name.startswith("model.visual.") or name.startswith("visual."):
+                        continue
+                    if name.startswith("model.language_model."):
+                        name = "model." + name[len("model.language_model."):]
+                    yield name, tensor
+
+            return original_load_weights(self, remap_weights())
+
+        qwen3_5.Qwen3_5ForCausalLMBase.load_weights = load_weights_with_prefix_fix
+        ModelRegistry.register_model("Qwen3_5ForCausalLM", qwen3_5.Qwen3_5ForCausalLM)
+        ModelRegistry.register_model("Qwen3_5MoeForCausalLM", qwen3_5.Qwen3_5MoeForCausalLM)
+        print("INFO: Patched vLLM registry and weight loading for Qwen3.5 text-only checkpoints")
+
+    sampling_params = SamplingParams(
+        temperature=0.0,
+        top_p=1.0,
+        max_tokens=args.max_new_tokens,
+        stop=STOP_TOKENS,
+        stop_token_ids=stop_token_ids,
+    )
+
+    llm_kwargs = {
+        "model": args.model,
+        "tokenizer": tokenizer_source,
+        "trust_remote_code": True,
+        "dtype": args.dtype,
+        "tensor_parallel_size": args.tensor_parallel_size,
+        "gpu_memory_utilization": args.gpu_memory_utilization,
+        "enforce_eager": args.enforce_eager,
+        "language_model_only": True,
+        "skip_mm_profiling": True,
+        "disable_log_stats": False,
+        "enable_prefix_caching": True,
+        "max_num_seqs": args.max_num_seqs,
+        "max_num_batched_tokens": args.max_num_batched_tokens,
     }
-    
-    # Throughput tracking
+    if args.max_model_len:
+        llm_kwargs["max_model_len"] = args.max_model_len
+    if is_qwen35:
+        llm_kwargs["hf_overrides"] = {"architectures": ["Qwen3_5ForCausalLM"]}
+
+    lora_request = None
+    if args.lora:
+        llm_kwargs["enable_lora"] = True
+        llm_kwargs["max_lora_rank"] = args.max_lora_rank
+        lora_request = LoRARequest("benchmark_adapter", 1, args.lora)
+
+    print(f"INFO: Loading vLLM model: {args.model}")
+    print("INFO: vLLM V1 multiprocessing: DISABLED")
+    llm = LLM(**llm_kwargs)
+
+    prompt_texts = [
+        (
+            "<|im_start|>system\n" + SYSTEM_PROMPT + "<|im_end|>\n"
+            "<|im_start|>user\n" + row.get("raw_text", "") + "<|im_end|>\n"
+            "<|im_start|>assistant\n"
+        )
+        for row in rows
+    ]
+    print(f"INFO: Pre-tokenizing {len(prompt_texts)} prompts...")
+    prompts = [
+        {"prompt_token_ids": token_ids}
+        for token_ids in tokenizer(prompt_texts, add_special_tokens=False)["input_ids"]
+    ]
+
+    metrics = Counter()
+    source_metrics = defaultdict(Counter)
+    failures = []
     latencies_ms = []
     total_completion_tokens = 0
-    
-    failures = []
 
-    def process_prediction(user_text: str, gt: dict, pred_str: str, tokens: int, elapsed_ms: float) -> None:
-        nonlocal total_completion_tokens
-        latencies_ms.append(elapsed_ms)
-        total_completion_tokens += tokens
+    print("INFO: Starting inference...")
+    start_total = time.perf_counter()
+    progress = tqdm(total=len(rows), desc="Benchmark")
 
-        pred = json.loads(pred_str)
-        metrics["valid_json"] += 1
+    for start in range(0, len(rows), args.batch_size):
+        batch_rows = rows[start:start + args.batch_size]
+        batch_prompts = prompts[start:start + args.batch_size]
+        generate_kwargs = {"lora_request": lora_request} if lora_request else {}
+        outputs = llm.generate(batch_prompts, sampling_params, use_tqdm=False, **generate_kwargs)
 
-        def clean(obj):
-            c = obj.copy()
-            # Strip any extra fields the model might output
-            for k in ("confidence", "raw_text"):
-                c.pop(k, None)
-            c["slots"] = normalize_slots(c.get("slots"))
-            return c
+        for row, request_output in zip(batch_rows, outputs, strict=True):
+            completion = request_output.outputs[0]
+            pred_str = completion.text
+            for stop in STOP_TOKENS:
+                pred_str = pred_str.split(stop)[0]
+            pred_str = pred_str.strip()
 
-        pred_clean = clean(pred)
-        gt_clean = clean(gt)
+            source = row[SOURCE_KEY]
+            metrics["total"] += 1
+            source_metrics[source]["total"] += 1
 
-        intent_ok = (
-            pred.get("type") == gt.get("type") and
-            pred.get("domain") == gt.get("domain") and
-            pred.get("action") == gt.get("action") and
-            pred.get("target") == gt.get("target")
+            total_completion_tokens += len(completion.token_ids)
+            request_metrics = request_output.metrics
+            assert request_metrics is not None, "vLLM metrics are missing; disable_log_stats must be False."
+            latencies_ms.append(
+                (
+                    request_metrics.first_token_latency
+                    + request_metrics.last_token_ts
+                    - request_metrics.first_token_ts
+                ) * 1000.0
+            )
+
+            expected = {
+                "type": row.get("type"),
+                "domain": row.get("domain"),
+                "action": row.get("action"),
+                "target": row.get("target"),
+                "state": row.get("state"),
+                "slots": normalize_slots(row.get("slots")),
+            }
+
+            try:
+                pred = json.loads(pred_str)
+            except json.JSONDecodeError:
+                failures.append({
+                    "type": "invalid_json",
+                    "source": source,
+                    "input": row.get("raw_text", ""),
+                    "got": pred_str,
+                })
+                progress.update(1)
+                continue
+
+            if not isinstance(pred, dict):
+                pred = {}
+
+            metrics["valid_json"] += 1
+            source_metrics[source]["valid_json"] += 1
+
+            pred_for_comparison = pred.copy()
+            pred_for_comparison["slots"] = normalize_slots(pred.get("slots"))
+
+            intent_ok = (
+                pred.get("type") == expected["type"]
+                and pred.get("domain") == expected["domain"]
+                and pred.get("action") == expected["action"]
+                and pred.get("target") == expected["target"]
+            )
+
+            if not intent_ok:
+                failures.append({
+                    "type": "intent_mismatch",
+                    "source": source,
+                    "input": row.get("raw_text", ""),
+                    "expected": expected,
+                    "got": pred_for_comparison,
+                })
+            else:
+                metrics["intent_match"] += 1
+                source_metrics[source]["intent_match"] += 1
+                if pred_for_comparison == expected:
+                    metrics["slot_match"] += 1
+                    source_metrics[source]["slot_match"] += 1
+                else:
+                    failures.append({
+                        "type": "slot_mismatch",
+                        "source": source,
+                        "input": row.get("raw_text", ""),
+                        "expected": expected,
+                        "got": pred_for_comparison,
+                    })
+
+            progress.update(1)
+
+    progress.close()
+    total_time_sec = time.perf_counter() - start_total
+    total = metrics["total"]
+    sorted_latencies = sorted(latencies_ms)
+    p95_index = min(int(len(sorted_latencies) * 0.95), len(sorted_latencies) - 1)
+    p99_index = min(int(len(sorted_latencies) * 0.99), len(sorted_latencies) - 1)
+
+    print("\n" + "=" * 50)
+    print("BENCHMARK RESULTS")
+    print("=" * 50)
+
+    print(f"\n{' ACCURACY ':-^50}")
+    print(f"  Total Samples:   {total}")
+    print(f"  Valid JSON:      {metrics['valid_json']} ({metrics['valid_json'] / total:.1%})")
+    print(f"  Intent Accuracy: {metrics['intent_match']} ({metrics['intent_match'] / total:.1%})")
+    print(f"  Slot Accuracy:   {metrics['slot_match']} ({metrics['slot_match'] / total:.1%})")
+
+    print(f"\n{' BY SOURCE ':-^50}")
+    for source, counts in sorted(source_metrics.items()):
+        source_total = counts["total"]
+        print(
+            f"  {source:<12} "
+            f"total={source_total:<5} "
+            f"valid_json={counts['valid_json'] / source_total:>6.1%} "
+            f"intent={counts['intent_match'] / source_total:>6.1%} "
+            f"slot={counts['slot_match'] / source_total:>6.1%}"
         )
 
-        if intent_ok:
-            metrics["intent_match"] += 1
-
-            if json.dumps(pred_clean, sort_keys=True) == json.dumps(gt_clean, sort_keys=True):
-                metrics["slot_match"] += 1
-            else:
-                failures.append({
-                    "type": "slot_mismatch",
-                    "input": user_text,
-                    "expected": gt_clean,
-                    "got": pred_clean
-                })
-        else:
-            failures.append({
-                "type": "intent_mismatch",
-                "input": user_text,
-                "expected": gt_clean,
-                "got": pred_clean
-            })
-
-    print("🔹 Starting Inference Loop...")
-    start_total = time.perf_counter()
-
-    if args.hf and args.hf_batch_size > 1 and hasattr(backend, "generate_batch"):
-        batch_size = args.hf_batch_size
-        total_batches = math.ceil(len(raw_data) / batch_size)
-        progress = tqdm(total=len(raw_data), desc=f"HF batched ({total_batches} batches)")
-
-        for i in range(0, len(raw_data), batch_size):
-            chunk = raw_data[i:i + batch_size]
-            rows = [row_from_item(item) for item in chunk]
-            user_texts = [row.get("raw_text", "") for row in rows]
-            gts = [row_to_target_json(row) for row in rows]
-            prompts = [build_prompt(text) for text in user_texts]
-
-            try:
-                start_req = time.perf_counter()
-                batch_out = backend.generate_batch(prompts)
-                elapsed_ms = (time.perf_counter() - start_req) * 1000
-                per_item_ms = elapsed_ms / len(chunk)
-
-                for user_text, gt, out in zip(user_texts, gts, batch_out):
-                    pred_str, tokens = out
-                    try:
-                        process_prediction(user_text, gt, pred_str, tokens, per_item_ms)
-                    except json.JSONDecodeError:
-                        failures.append({"type": "invalid_json", "input": user_text, "got": pred_str})
-                    except Exception as e:
-                        print(f"Error processing '{user_text}': {e}")
-                        latencies_ms.append(0)
-
-                    metrics["total"] += 1
-            except Exception as e:
-                # If batch path fails, fall back to per-item processing for this chunk.
-                print(f"Batch error (fallback to single): {e}")
-                for user_text, gt, prompt in zip(user_texts, gts, prompts):
-                    try:
-                        start_req = time.perf_counter()
-                        pred_str, tokens = backend.generate(prompt)
-                        elapsed_ms = (time.perf_counter() - start_req) * 1000
-                        process_prediction(user_text, gt, pred_str, tokens, elapsed_ms)
-                    except json.JSONDecodeError:
-                        failures.append({"type": "invalid_json", "input": user_text, "got": pred_str})
-                    except Exception as item_e:
-                        print(f"Error processing '{user_text}': {item_e}")
-                        latencies_ms.append(0)
-
-                    metrics["total"] += 1
-
-            progress.update(len(chunk))
-
-        progress.close()
-    else:
-        for item in tqdm(raw_data):
-            row = row_from_item(item)
-            user_text = row.get("raw_text", "")
-
-            gt = row_to_target_json(row)
-            prompt = build_prompt(user_text)
-
-            try:
-                # Time individual request
-                start_req = time.perf_counter()
-                pred_str, tokens = backend.generate(prompt)
-                elapsed_ms = (time.perf_counter() - start_req) * 1000
-                process_prediction(user_text, gt, pred_str, tokens, elapsed_ms)
-            except json.JSONDecodeError:
-                failures.append({"type": "invalid_json", "input": user_text, "got": pred_str})
-            except Exception as e:
-                print(f"Error processing '{user_text}': {e}")
-                latencies_ms.append(0)  # Record failed request
-
-            metrics["total"] += 1
-
-    # Calculate total time
-    total_time_sec = time.perf_counter() - start_total
-
-    total = metrics["total"]
-    if total == 0: total = 1
-
-    # Calculate throughput metrics
-    requests_per_sec = total / total_time_sec if total_time_sec > 0 else 0
-    tokens_per_sec = total_completion_tokens / total_time_sec if total_time_sec > 0 else 0
-    
-    # Calculate latency percentiles (filter out zeros from errors)
-    valid_latencies = [l for l in latencies_ms if l > 0]
-    avg_latency = statistics.mean(valid_latencies) if valid_latencies else 0
-    p50_latency = statistics.median(valid_latencies) if valid_latencies else 0
-    
-    sorted_latencies = sorted(valid_latencies)
-    p95_idx = int(len(sorted_latencies) * 0.95)
-    p99_idx = int(len(sorted_latencies) * 0.99)
-    p95_latency = sorted_latencies[min(p95_idx, len(sorted_latencies) - 1)] if sorted_latencies else 0
-    p99_latency = sorted_latencies[min(p99_idx, len(sorted_latencies) - 1)] if sorted_latencies else 0
-
-    print("\n" + "="*50)
-    print("📊 BENCHMARK RESULTS")
-    print("="*50)
-    
-    print(f"\n{'── ACCURACY ──':-^50}")
-    print(f"  Total Samples:   {total}")
-    print(f"  Valid JSON:      {metrics['valid_json']} ({metrics['valid_json']/total:.1%})")
-    print(f"  Intent Accuracy: {metrics['intent_match']} ({metrics['intent_match']/total:.1%})")
-    print(f"  Slot Accuracy:   {metrics['slot_match']} ({metrics['slot_match']/total:.1%})")
-    
-    print(f"\n{'── THROUGHPUT ──':-^50}")
+    print(f"\n{' THROUGHPUT ':-^50}")
     print(f"  Total Time:      {total_time_sec:.2f}s")
-    print(f"  Requests/sec:    {requests_per_sec:.2f}")
-    print(f"  Tokens/sec:      {tokens_per_sec:.1f}")
+    print(f"  Requests/sec:    {total / total_time_sec:.2f}")
+    print(f"  Tokens/sec:      {total_completion_tokens / total_time_sec:.1f}")
     print(f"  Total Tokens:    {total_completion_tokens}")
-    
-    print(f"\n{'── LATENCY ──':-^50}")
-    print(f"  Average:         {avg_latency:.1f} ms")
-    print(f"  P50 (median):    {p50_latency:.1f} ms")
-    print(f"  P95:             {p95_latency:.1f} ms")
-    print(f"  P99:             {p99_latency:.1f} ms")
-    
-    print("="*50)
 
-    # Save failures
+    print(f"\n{' LATENCY ':-^50}")
+    print(f"  Average:         {statistics.mean(sorted_latencies):.1f} ms")
+    print(f"  P50 (median):    {statistics.median(sorted_latencies):.1f} ms")
+    print(f"  P95:             {sorted_latencies[p95_index]:.1f} ms")
+    print(f"  P99:             {sorted_latencies[p99_index]:.1f} ms")
+    print("=" * 50)
+
     if failures:
         with open(args.output, "w", encoding="utf-8") as f:
             json.dump(failures, f, indent=2, ensure_ascii=False)
-        print(f"\n⚠️  {len(failures)} failures saved to '{args.output}'")
-        
-        # Count by type
-        failure_types = {}
-        for fail in failures:
-            t = fail.get("type", "unknown")
-            failure_types[t] = failure_types.get(t, 0) + 1
+        print(f"\nWARNING: {len(failures)} failures saved to '{args.output}'")
+
         print("   Breakdown:")
-        for t, count in sorted(failure_types.items(), key=lambda x: -x[1]):
-            print(f"     - {t}: {count}")
-        
-        # Print first 3 failures
+        for failure_type, count in Counter(failure["type"] for failure in failures).most_common():
+            print(f"     - {failure_type}: {count}")
+
+        print("   Breakdown by source:")
+        for source, count in Counter(failure["source"] for failure in failures).most_common():
+            print(f"     - {source}: {count}")
+
         print("\n   Top 3 Failures:")
-        for fail in failures[:3]:
-            print(f"   [{fail['type']}] Input: {fail.get('input')}")
-            if 'expected' in fail:
-                print(f"     Exp: {json.dumps(fail['expected'], ensure_ascii=False)}")
-                print(f"     Got: {json.dumps(fail['got'], ensure_ascii=False)}")
+        for failure in failures[:3]:
+            print(f"   [{failure['type']}] Source: {failure['source']} | Input: {failure.get('input')}")
+            if "expected" in failure:
+                print(f"     Exp: {json.dumps(failure['expected'], ensure_ascii=False)}")
+                print(f"     Got: {json.dumps(failure['got'], ensure_ascii=False)}")
             else:
-                print(f"     Got: {fail.get('got')}")
+                print(f"     Got: {failure.get('got')}")
             print()
+
 
 if __name__ == "__main__":
     main()

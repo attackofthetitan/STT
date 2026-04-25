@@ -42,9 +42,9 @@ ROOM_ALIASES_ZH = {
     "basement": ["地下室"],
     "attic": ["閣樓"],
     "laundry_room": ["洗衣間", "洗衣房"],
-    "closet": ["衣櫃間", "儲物間"],
+    "closet": ["衣櫃間", "儲物間", "儲藏間", "衣櫃"],
     "guest_room": ["客房"],
-    "nursery": ["嬰兒房", "兒童房"],
+    "nursery": ["嬰兒房", "兒童房", "育嬰室"],
     "default": ["家裡", "全部", "全屋"],
 }
 
@@ -300,6 +300,57 @@ def to_zh_count(n: int) -> str:
         return mapping[tens] + "十" + (mapping.get(ones, "") if ones else "")
     return mapping.get(n, str(n))
 
+
+ZH_DIGIT_WORDS = {
+    1: "一",
+    2: "二",
+    3: "三",
+    4: "四",
+    5: "五",
+    6: "六",
+    7: "七",
+    8: "八",
+    9: "九",
+}
+
+
+def zh_percent_forms(value: int) -> List[str]:
+    """Return common Chinese surface forms for percentage values."""
+    forms = [f"{value}%", f"百分之{value}"]
+
+    # x0% -> x成 forms (e.g., 40% -> 四成)
+    if value % 10 == 0 and 10 <= value <= 90:
+        tens = value // 10
+        zh_tens = [ZH_DIGIT_WORDS.get(tens, str(tens))]
+        if tens == 2:
+            zh_tens.append("兩")
+        for z in zh_tens:
+            forms.append(f"{z}成")
+        forms.append(f"{tens}成")
+
+    # x5% -> x成五 / x成半 forms (e.g., 75% -> 七成五 / 七成半)
+    if value % 10 == 5 and 15 <= value <= 95:
+        tens = value // 10
+        zh_tens = [ZH_DIGIT_WORDS.get(tens, str(tens))]
+        if tens == 2:
+            zh_tens.append("兩")
+        for z in zh_tens:
+            forms.extend([f"{z}成五", f"{z}成半"])
+        forms.append(f"{tens}成5")
+
+    return list(dict.fromkeys(forms))
+
+
+def pick_zh_percent_surface(value: int, prefer_cheng: bool = False) -> str:
+    forms = zh_percent_forms(value)
+    if not prefer_cheng:
+        return random.choice(forms)
+
+    cheng_forms = [s for s in forms if "成" in s]
+    if cheng_forms:
+        return random.choice(cheng_forms)
+    return random.choice(forms)
+
 def pick_room(weight_default: float = 0.20) -> str:
     if random.random() < weight_default:
         return "default"
@@ -384,10 +435,21 @@ def inject_hesitation_and_correction(text: str, lang: str) -> str:
     if random.random() > 0.30:
         return text
     corrections = CORRECTIONS_ZH if lang == "zh" else CORRECTIONS_EN
-    fake_actions = ["關掉", "打開", "設定"] if lang == "zh" else ["Turn off", "Open", "Set"]
-    fake = random.choice(fake_actions)
     correction = random.choice(corrections)
-    return f"{fake}...{correction}，{text}" if lang == "zh" else f"{fake}... {correction}, {text}"
+    stripped = text.strip()
+    if not stripped:
+        return text
+
+    # Reuse a short snippet from the original text to avoid introducing a
+    # contradictory fake command (which can drift labels from semantics).
+    if lang == "zh":
+        snippet_len = 2 if len(stripped) > 4 else 1
+        snippet = stripped[:snippet_len]
+        return f"{snippet}...{correction}，{stripped}"
+
+    words = stripped.split()
+    snippet = " ".join(words[: min(len(words), random.choice([1, 2]))])
+    return f"{snippet}... {correction}, {stripped}"
 
 def inject_time_expression(text: str, lang: str, prob: float = 0.0) -> str:
     if random.random() > prob:
@@ -408,7 +470,22 @@ def inject_token_drop(text: str, lang: str, prob: float = 0.0) -> str:
         words = text.split()
         if len(words) < 4:
             return text
-        removable = [i for i, w in enumerate(words) if w.lower() not in {"not", "no", "don't", "cant", "can't"}]
+
+        # Only drop low-information tokens to avoid removing core intent words
+        # (verbs/devices) and creating ground-truth drift.
+        low_info = {
+            "a", "an", "the", "please", "just", "kindly", "hey", "uh", "um",
+            "actually", "well", "okay", "ok", "can", "could", "would", "you",
+            "me", "to", "for", "really", "very",
+        }
+        removable = []
+        for i, w in enumerate(words):
+            token = w.strip(".,!?;:()[]{}\"'").lower()
+            if token in {"not", "no", "don't", "cant", "can't"}:
+                continue
+            if token in low_info:
+                removable.append(i)
+
         if not removable:
             return text
         del words[random.choice(removable)]
@@ -627,6 +704,37 @@ def finalize_target(text: str) -> str:
     detected = detect_room_in_text(text)
     return detected if detected else "default"
 
+
+def infer_media_device_from_text(text: str) -> Optional[str]:
+    """
+    Infer TV vs speaker from explicit device keywords in the final text.
+    Returns None when there is no explicit clue or when both appear.
+    """
+    import re
+
+    text_lower = text.lower()
+    found = set()
+
+    for device in ("tv", "speaker"):
+        for kw in EXPLICIT_DEVICE_KEYWORDS.get(device, []):
+            kw_lower = kw.lower()
+            if not kw_lower:
+                continue
+
+            if kw_lower.isascii():
+                pattern = r"\b" + re.escape(kw_lower) + r"\b"
+                if re.search(pattern, text_lower):
+                    found.add(device)
+                    break
+            else:
+                if kw_lower in text_lower:
+                    found.add(device)
+                    break
+
+    if len(found) == 1:
+        return next(iter(found))
+    return None
+
 # Domain generators
 
 def gen_lights() -> Example:
@@ -646,16 +754,18 @@ def gen_lights() -> Example:
         brightness = random.choice([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100])
         slots = make_slots(device="light", value=brightness, unit="percent")
         if lang == "zh":
-            b_str = str(brightness)
+            b_surface = pick_zh_percent_surface(brightness, prefer_cheng=(random.random() < 0.60))
             if include_room_in_structure:
                 structures = [
-                    f"{room_word}{dev_word}調到{b_str}%", f"把{room_word}{dev_word}亮度設{b_str}%",
-                    f"{room_word}亮度{b_str}%", f"把{room_word}的{dev_word}調到{b_str}",
+                    f"{room_word}{dev_word}調到{b_surface}", f"把{room_word}{dev_word}亮度設{b_surface}",
+                    f"{room_word}亮度{b_surface}", f"把{room_word}的{dev_word}調到{b_surface}",
+                    f"{room_word}燈光拉到{b_surface}",
                 ]
             else:
                 structures = [
-                    f"{dev_word}調到{b_str}%", f"亮度設{b_str}%", f"亮度{b_str}",
-                    f"把{dev_word}調到{b_str}%", f"{dev_word}亮度{b_str}%",
+                    f"{dev_word}調到{b_surface}", f"亮度設{b_surface}", f"亮度{b_surface}",
+                    f"把{dev_word}調到{b_surface}", f"{dev_word}亮度{b_surface}",
+                    f"燈光拉到{b_surface}",
                 ]
         else:
             if include_room_in_structure:
@@ -920,12 +1030,26 @@ def gen_climate() -> Example:
                 f"把{room_word}{dev_word}{verb}", f"幫我{verb}{room_word}的{dev_word}",
                 f"我要{verb}{room_word}{dev_word}",
             ]
+            if onoff == "off":
+                structures.extend([
+                    f"把{room_word}空調整組關掉",
+                    f"{room_word}空調整套先關掉",
+                    f"把{room_word}冷氣整組關掉",
+                ])
         else:
             structures = [
                 f"{verb}{dev_word}", f"把{dev_word}{verb}",
                 f"幫我{verb}{dev_word}", f"我要{verb}{dev_word}",
                 f"可以{verb}{dev_word}嗎",
             ]
+            if onoff == "off":
+                structures.extend([
+                    "把空調整組關掉",
+                    "空調整套先關掉",
+                    "把空調整套關掉",
+                    "把冷氣整組關掉",
+                    "空調整機關掉",
+                ])
     else:
         verb = random.choice(["turn on", "switch on", "fire up"]) if onoff == "on" else random.choice(["turn off", "switch off", "shut off"])
         if include_room_in_structure:
@@ -1026,7 +1150,7 @@ def gen_vacuum() -> Example:
     if lang == "zh":
         v_map = {
             "start": ["開始掃地", "啟動", "開始打掃", "開始清潔", "去掃地", "出動"],
-            "stop": ["停止", "停", "不要掃了", "停下來", "別掃了"],
+            "stop": ["停止", "停", "不要掃了", "停下來", "別掃了", "先停在這裡", "這輪先停在這裡"],
             "pause": ["暫停", "等一下", "先停一下", "暫時停止"],
         }
         structures = [f"{dev_word}{random.choice(v_map[act])}", f"叫{dev_word}{random.choice(v_map[act])}"]
@@ -1165,17 +1289,19 @@ def gen_curtain() -> Example:
     if action_type == "partial":
         percentage = random.choice([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90])
         if lang == "zh":
-            p_str = str(percentage)
+            p_surface = pick_zh_percent_surface(percentage, prefer_cheng=(random.random() < 0.70))
             if include_room_in_structure:
                 structures = [
-                    f"{room_word}{dev_word}開{p_str}%", f"把{room_word}{dev_word}開到{p_str}%",
-                    f"{room_word}的{dev_word}調到{p_str}%", f"把{room_word}{dev_word}拉到{p_str}%",
+                    f"{room_word}{dev_word}開{p_surface}", f"把{room_word}{dev_word}開到{p_surface}",
+                    f"{room_word}的{dev_word}調到{p_surface}", f"把{room_word}{dev_word}拉到{p_surface}",
+                    f"{room_word}{dev_word}停在{p_surface}開度",
                 ]
             else:
                 structures = [
-                    f"{dev_word}開{p_str}%", f"把{dev_word}開到{p_str}%",
-                    f"{dev_word}調到{p_str}%", f"{dev_word}{p_str}%",
-                    f"把{dev_word}拉到{p_str}%",
+                    f"{dev_word}開{p_surface}", f"把{dev_word}開到{p_surface}",
+                    f"{dev_word}調到{p_surface}", f"{dev_word}{p_surface}",
+                    f"把{dev_word}拉到{p_surface}",
+                    f"窗簾停在{p_surface}開度",
                 ]
         else:
             if include_room_in_structure:
@@ -1215,6 +1341,12 @@ def gen_curtain() -> Example:
                 f"幫我{verb}{dev_word}", f"我要{verb}{dev_word}",
                 f"可以{verb}{dev_word}嗎",
             ]
+            if action == "close":
+                structures.extend([
+                    "窗邊遮簾關上",
+                    "把窗邊遮簾關上",
+                    "窗邊窗簾關上",
+                ])
     else:
         verbs_open = ["open", "pull open", "raise", "draw open"]
         verbs_close = ["close", "shut", "draw", "pull shut", "lower"]
@@ -1256,13 +1388,17 @@ def gen_fan() -> Example:
     if random.random() < 0.08:
         if lang == "zh":
             phrases = [
-                "好悶需要通風", "空氣不流通", "需要吹一下風", "有點悶",
-                "想要涼快一點", "需要風",
+                f"開一下{dev_word}，好悶", f"{dev_word}開著吧，空氣不流通",
+                f"把{dev_word}打開，需要通風", f"我想吹風，把{dev_word}開起來",
+                f"{dev_word}開大一點，這裡很悶",
             ]
         else:
             phrases = [
-                "it's stuffy in here", "I need some air", "need some airflow",
-                "it's not breezy enough", "could use a breeze", "the air is stale",
+                f"turn on the {dev_word}, it's stuffy",
+                f"I need the {dev_word} on for airflow",
+                f"switch on the {dev_word}, the air feels stale",
+                f"please start the {dev_word}, I need a breeze",
+                f"get the {dev_word} running",
             ]
         raw_text = humanize_text(random.choice(phrases), lang)
         final_target = finalize_target(raw_text)
@@ -1494,7 +1630,10 @@ def gen_media() -> Example:
             slots = make_slots(device="tv", value=str(ch), mode="channel")
         else:
             if lang == "zh":
-                structures = ["換台", "下一台", "切換頻道", "轉台", "上一台"]
+                structures = [
+                    "換台", "下一台", "切換頻道", "轉台", "上一台",
+                    "幫我把電視頻道換一台", "把電視頻道換一台", "電視頻道換一台",
+                ]
             else:
                 structures = ["change channel", "next channel", "change the channel", "flip the channel", "switch channels"]
             slots = make_slots(device="tv", mode="channel")
@@ -1544,8 +1683,9 @@ def gen_media() -> Example:
         }
         verb_phrase = random.choice(vmap_variants[action])
         if action in ["next", "previous"]:
+            switched = verb_phrase if verb_phrase.startswith("切") else f"切{verb_phrase}"
             structures = [
-                f"{dev_word}{verb_phrase}", verb_phrase, f"切{verb_phrase}", f"幫我{verb_phrase}",
+                f"{dev_word}{verb_phrase}", verb_phrase, switched, f"幫我{verb_phrase}",
                 f"{verb_phrase}一下", f"{dev_word}{verb_phrase}一下",
             ]
         else:
@@ -1571,8 +1711,14 @@ def gen_media() -> Example:
         st = random.choice(structures)
 
     raw_text = humanize_text(st, lang)
-    
-    slots = make_slots(device=media_type)
+
+    explicit_device_hint = dev_word in st if lang == "zh" else dev_word.lower() in st.lower()
+    inferred_device = infer_media_device_from_text(raw_text)
+    if inferred_device is None and explicit_device_hint:
+        inferred_device = media_type
+
+    # Keep device null when playback utterance has no explicit tv/speaker signal.
+    slots = make_slots(device=inferred_device)
     
     return emit_command("media", action, "default", None, slots, raw_text)
 
@@ -1603,6 +1749,10 @@ def gen_meta_command_negative() -> Example:
             f"如果我說{command_like}，那也只是例子",
             f"不是要你{command_like}，我只是聊天",
             f"先別動，我還沒要你{command_like}",
+            "pause the TV 只是示範說法，別真的執行",
+            "pause the TV 那句別當真",
+            "pause the TV 那句只是示範",
+            "pause the TV 只是我在說明，不是命令",
         ]
     else:
         command_like = random.choice([
@@ -1628,6 +1778,75 @@ def gen_meta_command_negative() -> Example:
         lang,
         prob=0.35,
     )
+    return emit_transcript("unknown", "none", None, None, make_slots(), raw_text)
+
+
+def gen_percent_cheng_command() -> Example:
+    """Generate Chinese percent commands emphasizing 成-based forms."""
+    domain = random.choice(["lights", "curtain"])
+    base_room = pick_room(weight_default=0.30)
+    include_room_in_structure = (base_room != "default") and (random.random() < 0.70)
+    room_word = pick_room_word(base_room, "zh") if include_room_in_structure else ""
+
+    percentage = random.choice([20, 25, 30, 40, 50, 60, 70, 75, 80, 90])
+    p_surface = pick_zh_percent_surface(percentage, prefer_cheng=True)
+
+    if domain == "lights":
+        dev_word = get_granular_device("light", "zh")
+        if include_room_in_structure:
+            structures = [
+                f"{room_word}燈光拉到{p_surface}",
+                f"把{room_word}{dev_word}調到{p_surface}",
+                f"{room_word}亮度調成{p_surface}",
+                f"{room_word}的燈留{p_surface}",
+            ]
+        else:
+            structures = [
+                f"燈光拉到{p_surface}",
+                f"亮度調成{p_surface}",
+                f"把燈調到{p_surface}",
+                f"燈留{p_surface}",
+            ]
+
+        raw_text = humanize_text(random.choice(structures), "zh")
+        final_target = finalize_target(raw_text)
+        slots = make_slots(device="light", value=percentage, unit="percent")
+        return emit_command("lights", "set", final_target, None, slots, raw_text)
+
+    dev_word = get_granular_device("curtain", "zh")
+    if include_room_in_structure:
+        structures = [
+            f"{room_word}{dev_word}留{p_surface}",
+            f"把{room_word}{dev_word}停在{p_surface}開度",
+            f"{room_word}窗簾留{p_surface}",
+            f"{room_word}窗簾停在{p_surface}開度",
+        ]
+    else:
+        structures = [
+            f"{dev_word}留{p_surface}",
+            f"窗簾留{p_surface}",
+            f"窗簾停在{p_surface}開度",
+            f"百葉簾維持{p_surface}開",
+        ]
+
+    raw_text = humanize_text(random.choice(structures), "zh")
+    final_target = finalize_target(raw_text)
+    slots = make_slots(device="curtain", value=percentage, unit="percent")
+    return emit_command("curtain", "set_position", final_target, None, slots, raw_text)
+
+
+def gen_quoted_command_negative_mix() -> Example:
+    """Generate bilingual quoted command negatives (should remain transcripts)."""
+    templates = [
+        "pause the TV 只是示範說法",
+        "pause the TV 那句別當真",
+        "pause the TV 那句只是示範",
+        "pause the TV 只是我在說明",
+        "pause the TV 只是舉例，不是命令",
+        "我說 pause the TV 只是示範，不要執行",
+        "I said 暫停電視 only as an example, not a command",
+    ]
+    raw_text = inject_punctuation_variation(random.choice(templates), "zh", prob=0.30)
     return emit_transcript("unknown", "none", None, None, make_slots(), raw_text)
 
 
@@ -1716,7 +1935,17 @@ def gen_hard_negative() -> Example:
             f"{room_word}的{dev_word}沒反應",
             f"{dev_word}好像沒電了",
             f"這{dev_word}該保養了",
+            f"我覺得{room_word}的{dev_word}聲音不太對",
+            f"{room_word}的{dev_word}聲音怪怪的",
+            f"{dev_word}音量忽大忽小",
         ]
+
+        if dev_type in {"tv", "speaker"}:
+            observations.extend([
+                f"我覺得{room_word}電視聲音不太對",
+                f"{room_word}音響聽起來怪怪的",
+                "我覺得客廳電視聲音不太對",
+            ])
         
         # Third person / Reported speech
         third_person = [
@@ -1879,6 +2108,7 @@ def gen_transcript() -> Example:
             "我等等要出門", "我回來了", "我出門了", "我在忙", "我在睡覺",
             "股市今天跌了", "塞車塞好久", "好累喔", "肚子好餓",
             "今天上班好忙", "作業好多", "考試考完了", "放假了",
+            "我覺得客廳電視聲音不太對", "電視聲音怪怪的",
         ]
         
         # Requests (non-smart home)
@@ -1892,7 +2122,7 @@ def gen_transcript() -> Example:
         filler = [
             "測試測試", "嗯...", "讓我想想", "等一下喔", "稍等",
             "我想想看", "怎麼說呢", "話說", "對了", "啊", "喔",
-            "算了", "沒事", "好吧", "隨便", "都可以",
+            "算了", "沒事", "好吧", "隨便", "都可以", "先等我一下下",
         ]
         
         # Life events / Stories
@@ -2094,7 +2324,7 @@ def gen_ambiguous_short_phrase() -> Example:
         
         # Action words without context - AVOID playback command conflicts
         actions = [
-            "再一次", "開始", "結束",
+            "再一次", "結束",
             "重來", "取消", "確定", "返回", "下一步", "上一步",
         ]
         
@@ -2144,7 +2374,7 @@ def gen_ambiguous_short_phrase() -> Example:
         
         # Action words without context
         actions = [
-            "Again", "Start", "End",
+            "Again", "End",
             "Restart", "Cancel", "Confirm", "Go back", "Next step", "Undo",
             "Repeat", "Skip", "Finish",
         ]
@@ -2219,11 +2449,13 @@ GENERATORS = [
     (gen_curtain, 0.095),
     (gen_fan, 0.095),
     (gen_media, 0.095),
+    (gen_percent_cheng_command, 0.045),
     (gen_hard_negative, 0.10),
     (gen_transcript, 0.09),
     (gen_abandoned_correction, 0.04),
     (gen_ambiguous_short_phrase, 0.025),
     (gen_meta_command_negative, 0.06),
+    (gen_quoted_command_negative_mix, 0.03),
     (gen_contrastive_direct_command, 0.04),
 ]
 
