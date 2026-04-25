@@ -64,33 +64,6 @@ def silero_prob(sess, audio_f32: np.ndarray, state: np.ndarray):
     prob, state = sess.run(None, {"input": x, "sr": sr, "state": state})
     return float(np.squeeze(prob)), state
 
-def parse_command_llm_safe(text: str) -> dict:
-    last_err = None
-    for attempt in range(3):
-        try:
-            return parse_command_llm(text)
-        except Exception as e:
-            last_err = e
-            if attempt < 2:
-                time.sleep(0.05 * (attempt + 1))
-    print(f"  [LLM parse failed after 3 attempts: {last_err}]")
-    return {
-        "type": "transcript",
-        "domain": "unknown",
-        "action": "none",
-        "target": None,
-        "state": None,
-        "slots": {
-            "device": None,
-            "value": None,
-            "unit": None,
-            "mode": None,
-            "scene": None,
-        },
-        "raw_text": text,
-    }
-
-
 def main():
     # Load Silero VAD
     vad_sess = load_silero_onnx_session()
@@ -188,7 +161,7 @@ def main():
 
                     # --- LLM intent parsing ---
                     t_llm = now_ms()
-                    event = parse_command_llm_safe(text)
+                    event = parse_command_llm(text)
                     dt_llm = now_ms() - t_llm
 
                     event["raw_transcript"] = text

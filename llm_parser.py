@@ -2,14 +2,7 @@ import json
 from pathlib import Path
 from llama_cpp import Llama, LlamaGrammar
 
-SYSTEM_PROMPT = """You are a smart home intent parser. Translate the user's input into a structured JSON command with no markdown and no explanations.
-
-Rules:
-1. If no specific room is mentioned, set "target" to "default".
-2. Infer "slots.device" when the intent implies one (for example: channel -> tv, temperature/cooling/heating -> thermostat). Use null only when genuinely ambiguous.
-3. If the input is NOT a direct command, set "type" to "transcript", "domain" to "unknown", and "action" to "none".
-4. Always include all fields in the JSON, using null for any unspecified values.
-"""
+from smart_home_schema import SYSTEM_PROMPT
 
 def build_prompt(user_text: str) -> str:
     return (

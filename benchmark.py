@@ -16,16 +16,7 @@ from vllm import LLM, SamplingParams
 from vllm.lora.request import LoRARequest
 
 from generate_smart_home_dataset import generate
-
-
-SYSTEM_PROMPT = """You are a smart home intent parser. Translate the user's input into a structured JSON command with no markdown and no explanations.
-
-Rules:
-1. If no specific room is mentioned, set "target" to "default".
-2. Infer "slots.device" when the intent implies one (for example: channel -> tv, temperature/cooling/heating -> thermostat). Use null only when genuinely ambiguous.
-3. If the input is NOT a direct command, set "type" to "transcript", "domain" to "unknown", and "action" to "none".
-4. Always include all fields in the JSON, using null for any unspecified values.
-"""
+from smart_home_schema import SYSTEM_PROMPT, command_payload, normalize_slots
 
 STOP_TOKENS = ["<|im_end|>"]
 DEFAULT_MODEL = str(
@@ -38,26 +29,12 @@ DEFAULT_MODEL = str(
 DEFAULT_SAMPLES_PER_SOURCE = 1000
 DEFAULT_MAX_MODEL_LEN = 512
 DEFAULT_MAX_NEW_TOKENS = 128
-DEFAULT_BATCH_SIZE = 64
+DEFAULT_BATCH_SIZE = 128
 DEFAULT_MAX_NUM_SEQS = 256
 DEFAULT_MAX_NUM_BATCHED_TOKENS = 8192
-DEFAULT_GPU_MEMORY_UTILIZATION = 0.85
+DEFAULT_GPU_MEMORY_UTILIZATION = 0.9
 OOD_HARDCODED_DATASET = Path(__file__).with_name("ood_hardcoded_100.jsonl")
 SOURCE_KEY = "_eval_source"
-
-SLOTS_TEMPLATE = {
-    "device": None,
-    "value": None,
-    "unit": None,
-    "mode": None,
-    "scene": None,
-}
-
-
-def normalize_slots(slots: dict | None) -> dict:
-    if not isinstance(slots, dict):
-        slots = {}
-    return {key: slots.get(key, default) for key, default in SLOTS_TEMPLATE.items()}
 
 
 def sample_jsonl(path: Path, sample_count: int) -> list[dict]:
@@ -307,14 +284,7 @@ Examples:
                 ) * 1000.0
             )
 
-            expected = {
-                "type": row.get("type"),
-                "domain": row.get("domain"),
-                "action": row.get("action"),
-                "target": row.get("target"),
-                "state": row.get("state"),
-                "slots": normalize_slots(row.get("slots")),
-            }
+            expected = command_payload(row)
 
             try:
                 pred = json.loads(pred_str)
