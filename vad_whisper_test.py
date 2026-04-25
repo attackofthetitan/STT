@@ -16,8 +16,7 @@ os.environ["PATH"] = f"{CUDNN_DIR};{CUDBLAS_DIR};" + os.environ.get("PATH", "")
 import numpy as np
 import sounddevice as sd
 import onnxruntime as ort
-from faster_whisper import WhisperModel
-from llm_parser import parse_command_llm
+from asr_engine import QwenASR
 
 # VAD settings
 SAMPLE_RATE = 16000
@@ -35,17 +34,11 @@ MIN_SPEECH_MS = 200
 # Silero VAD threshold
 VAD_THRESHOLD = 0.3
 
-# Whisper settings
-MODEL_NAME = "medium"
-DEVICE = "cuda"
-COMPUTE_TYPE = "float16"
-LANGUAGE = None
-
-CPU_THREADS = 4
-NUM_WORKERS = 1
-
-BEAM_SIZE = 5
-BEST_OF = 1
+# ASR settings
+ASR_MODEL = os.getenv("STT_ASR_MODEL", str(ROOT / "models" / "asr" / "qwen3-asr-0.6b"))
+ASR_LANGUAGE = os.getenv("STT_ASR_LANGUAGE") or None
+ASR_MAX_NEW_TOKENS = int(os.getenv("STT_ASR_MAX_NEW_TOKENS", "128"))
+ASR_GPU_MEMORY_UTILIZATION = float(os.getenv("STT_ASR_GPU_MEMORY_UTILIZATION", "0.35"))
 
 def now_ms() -> float:
     return time.perf_counter() * 1000.0
@@ -69,25 +62,22 @@ def main():
     vad_sess = load_silero_onnx_session()
     state = np.zeros((2, 1, 128), dtype=np.float32)
 
-    # Load Whisper
-    whisper_dir = ROOT / "models" / "whisper" / MODEL_NAME
-    if not whisper_dir.exists():
-        raise FileNotFoundError(f"Missing Whisper model dir: {whisper_dir}")
-
-    model = WhisperModel(
-        str(whisper_dir),
-        device=DEVICE,
-        compute_type=COMPUTE_TYPE,
-        cpu_threads=CPU_THREADS,
-        num_workers=NUM_WORKERS,
+    asr = QwenASR(
+        model_name=ASR_MODEL,
+        language=ASR_LANGUAGE,
+        max_new_tokens=ASR_MAX_NEW_TOKENS,
+        gpu_memory_utilization=ASR_GPU_MEMORY_UTILIZATION,
     )
+    asr.transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), SAMPLE_RATE)
 
-    # Warmup Whisper
-    _ = list(model.transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), vad_filter=False)[0])
+    from llm_parser import parse_command_llm
 
     print("Streaming... speak normally. Ctrl+C to stop.")
     print(f"VAD: frame={FRAME_MS}ms, end_silence={END_SILENCE_MS}ms, prepad={PREPAD_MS}ms, thr={VAD_THRESHOLD}")
-    print(f"Whisper: model={MODEL_NAME}, device={DEVICE}, compute={COMPUTE_TYPE}")
+    print(
+        f"ASR: model={ASR_MODEL}, backend=vLLM, "
+        f"gpu_memory_utilization={ASR_GPU_MEMORY_UTILIZATION}, language={ASR_LANGUAGE or 'auto'}"
+    )
 
     prepad = []
     speech = []
@@ -139,25 +129,16 @@ def main():
                     if dur_ms < MIN_SPEECH_MS:
                         continue
 
-                    # --- Whisper transcription ---
-                    t_whisper = now_ms()
-                    segments, info = model.transcribe(
-                        audio_f32,
-                        language=LANGUAGE,
-                        vad_filter=True,
-                        vad_parameters={"min_silence_duration_ms": END_SILENCE_MS, "speech_pad_ms": PREPAD_MS},
-                        condition_on_previous_text=False,
-                        beam_size=BEAM_SIZE,
-                        best_of=BEST_OF,
-                    )
-                    text = " ".join(s.text.strip() for s in segments).strip()
-                    dt_whisper = now_ms() - t_whisper
+                    # --- ASR transcription ---
+                    t_asr = now_ms()
+                    text, language = asr.transcribe(audio_f32, SAMPLE_RATE)
+                    dt_asr = now_ms() - t_asr
 
                     # Skip empty transcripts — no point sending to LLM
                     if not text:
                         continue
 
-                    print(f"> [{info.language} {info.language_probability:.2f}] ({dt_whisper:.0f}ms) {text}")
+                    print(f"> [{language or 'unknown'}] ({dt_asr:.0f}ms) {text}")
 
                     # --- LLM intent parsing ---
                     t_llm = now_ms()

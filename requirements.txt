@@ -1,4 +1,4 @@
-faster-whisper
+qwen-asr
 silero-vad
 onnxruntime
 sounddevice
@@ -11,4 +11,4 @@ tqdm
 torch==2.11.0+cu130
 torchvision==0.26.0+cu130
 torchaudio==2.11.0+cu130
-vllm
+vllm @ git+https://github.com/vllm-project/vllm.git@v0.20.0
