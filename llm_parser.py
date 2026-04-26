@@ -17,10 +17,11 @@ MODEL_PATH = os.getenv(
 )
 MAX_MODEL_LEN = int(os.getenv("STT_LLM_MAX_MODEL_LEN", "512"))
 MAX_NEW_TOKENS = int(os.getenv("STT_LLM_MAX_NEW_TOKENS", "128"))
-GPU_MEMORY_UTILIZATION = float(os.getenv("STT_LLM_GPU_MEMORY_UTILIZATION", "0.35"))
+GPU_MEMORY_UTILIZATION = float(os.getenv("STT_LLM_GPU_MEMORY_UTILIZATION", "0.28"))
 MAX_NUM_SEQS = int(os.getenv("STT_LLM_MAX_NUM_SEQS", "1"))
-MAX_NUM_BATCHED_TOKENS = int(os.getenv("STT_LLM_MAX_NUM_BATCHED_TOKENS", "1024"))
+MAX_NUM_BATCHED_TOKENS = int(os.getenv("STT_LLM_MAX_NUM_BATCHED_TOKENS", "512"))
 DTYPE = os.getenv("STT_LLM_DTYPE", "auto")
+ENFORCE_EAGER = os.getenv("STT_LLM_ENFORCE_EAGER", "0") == "1"
 
 STOP_TOKENS = ["<|im_end|>"]
 
@@ -110,6 +111,7 @@ _llm_kwargs = {
     "max_model_len": MAX_MODEL_LEN,
     "max_num_seqs": MAX_NUM_SEQS,
     "max_num_batched_tokens": MAX_NUM_BATCHED_TOKENS,
+    "enforce_eager": ENFORCE_EAGER,
     "language_model_only": True,
     "skip_mm_profiling": True,
     "disable_log_stats": True,

@@ -38,7 +38,9 @@ VAD_THRESHOLD = 0.3
 ASR_MODEL = os.getenv("STT_ASR_MODEL", str(ROOT / "models" / "asr" / "qwen3-asr-0.6b"))
 ASR_LANGUAGE = os.getenv("STT_ASR_LANGUAGE") or None
 ASR_MAX_NEW_TOKENS = int(os.getenv("STT_ASR_MAX_NEW_TOKENS", "128"))
-ASR_GPU_MEMORY_UTILIZATION = float(os.getenv("STT_ASR_GPU_MEMORY_UTILIZATION", "0.35"))
+ASR_MAX_MODEL_LEN = int(os.getenv("STT_ASR_MAX_MODEL_LEN", "1536"))
+ASR_GPU_MEMORY_UTILIZATION = float(os.getenv("STT_ASR_GPU_MEMORY_UTILIZATION", "0.28"))
+ASR_ENFORCE_EAGER = os.getenv("STT_ASR_ENFORCE_EAGER", "0") == "1"
 
 def now_ms() -> float:
     return time.perf_counter() * 1000.0
@@ -66,7 +68,9 @@ def main():
         model_name=ASR_MODEL,
         language=ASR_LANGUAGE,
         max_new_tokens=ASR_MAX_NEW_TOKENS,
+        max_model_len=ASR_MAX_MODEL_LEN,
         gpu_memory_utilization=ASR_GPU_MEMORY_UTILIZATION,
+        enforce_eager=ASR_ENFORCE_EAGER,
     )
     asr.transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), SAMPLE_RATE)
 

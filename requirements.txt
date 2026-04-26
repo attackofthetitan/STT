@@ -1,4 +1,3 @@
-qwen-asr
 silero-vad
 onnxruntime
 sounddevice
