@@ -19,7 +19,7 @@ class QwenASR:
     ):
         from vllm import LLM, SamplingParams
 
-        self.language = language
+        self.language = language or "Traditional Chinese"
         self.sampling_params = SamplingParams(temperature=0.01, max_tokens=max_new_tokens)
         self.model = LLM(
             model=model_name,

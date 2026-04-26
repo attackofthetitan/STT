@@ -19,7 +19,7 @@ CUDBLAS_DIR = ROOT / "vendor" / "cublas" / "bin"
 os.environ["PATH"] = f"{CUDNN_DIR};{CUDBLAS_DIR};" + os.environ.get("PATH", "")
 
 ASR_MODEL = os.getenv("STT_ASR_MODEL", str(ROOT / "models" / "asr" / "qwen3-asr-0.6b"))
-ASR_LANGUAGE = os.getenv("STT_ASR_LANGUAGE") or None
+ASR_LANGUAGE = os.getenv("STT_ASR_LANGUAGE", "Traditional Chinese")
 ASR_MAX_NEW_TOKENS = int(os.getenv("STT_ASR_MAX_NEW_TOKENS", "128"))
 ASR_MAX_MODEL_LEN = int(os.getenv("STT_ASR_MAX_MODEL_LEN", "1536"))
 ASR_GPU_MEMORY_UTILIZATION = float(os.getenv("STT_ASR_GPU_MEMORY_UTILIZATION", "0.28"))
