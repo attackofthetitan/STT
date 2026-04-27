@@ -10,6 +10,7 @@ from pathlib import Path
 
 os.environ.setdefault("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
 
+from safetensors import safe_open
 from tqdm import tqdm
 from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
@@ -27,13 +28,13 @@ DEFAULT_MODEL = str(
     / "qwen35_08b_base_full_sft"
 )
 DEFAULT_SAMPLES_PER_SOURCE = 1000
-DEFAULT_MAX_MODEL_LEN = 512
-DEFAULT_MAX_NEW_TOKENS = 128
+DEFAULT_MAX_MODEL_LEN = 320
+DEFAULT_MAX_NEW_TOKENS = 64
 DEFAULT_BATCH_SIZE = 128
-DEFAULT_MAX_NUM_SEQS = 256
+DEFAULT_MAX_NUM_SEQS = 128
 DEFAULT_MAX_NUM_BATCHED_TOKENS = 8192
-DEFAULT_GPU_MEMORY_UTILIZATION = 0.9
-OOD_HARDCODED_DATASET = Path(__file__).with_name("ood_hardcoded_100.jsonl")
+DEFAULT_GPU_MEMORY_UTILIZATION = 0.85
+OOD_HARDCODED_DATASET = Path(__file__).with_name("ood_bench.jsonl")
 SOURCE_KEY = "_eval_source"
 
 
@@ -41,6 +42,13 @@ def sample_jsonl(path: Path, sample_count: int) -> list[dict]:
     with path.open("r", encoding="utf-8") as f:
         rows = [json.loads(line) for line in f if line.strip()]
     return random.sample(rows, sample_count)
+
+
+def has_language_model_weight_prefix(model_path: Path) -> bool:
+    for path in sorted(model_path.glob("*.safetensors")):
+        with safe_open(path, framework="pt", device="cpu") as f:
+            return any(name.startswith("model.language_model.") for name in f.keys())
+    return False
 
 
 def main() -> None:
@@ -93,8 +101,23 @@ Examples:
         help="vLLM GPU memory utilization",
     )
     parser.add_argument("--dtype", default="auto", help="vLLM dtype, e.g. auto, bfloat16, float16")
+    parser.add_argument("--quantization", help="vLLM weight quantization method, e.g. fp8")
+    parser.add_argument("--kv-cache-dtype", help="vLLM KV cache dtype, e.g. auto, fp8, turboquant_3bit_nc")
     parser.add_argument("--enforce-eager", action="store_true", help="Disable vLLM CUDA graphs")
+    parser.add_argument(
+        "--speculative-config-json",
+        help="JSON object passed through to vLLM speculative_config, e.g. '{\"method\":\"ngram\",\"num_speculative_tokens\":4,\"prompt_lookup_max\":4}'",
+    )
     args = parser.parse_args()
+
+    speculative_config = None
+    if args.speculative_config_json:
+        try:
+            speculative_config = json.loads(args.speculative_config_json)
+        except json.JSONDecodeError as exc:
+            parser.error(f"--speculative-config-json must be valid JSON: {exc}")
+        if not isinstance(speculative_config, dict):
+            parser.error("--speculative-config-json must decode to a JSON object")
 
     random.seed(args.seed)
 
@@ -149,7 +172,6 @@ Examples:
         "qwen3.5" in marker.lower() or "qwen35" in marker.lower() or "qwen3_5" in marker.lower()
         for marker in model_markers
     )
-
     if is_qwen35:
         from vllm.model_executor.models import qwen3_5
         from vllm.model_executor.models.registry import ModelRegistry
@@ -176,23 +198,25 @@ Examples:
                 qwen3_5.Qwen3_5ForConditionalGeneration.get_mamba_state_copy_func.__func__
             )
 
-        original_load_weights = qwen3_5.Qwen3_5ForCausalLMBase.load_weights
+        if model_path.is_dir() and has_language_model_weight_prefix(model_path):
+            original_load_weights = qwen3_5.Qwen3_5ForCausalLMBase.load_weights
 
-        def load_weights_with_prefix_fix(self, weights):
-            def remap_weights():
-                for name, tensor in weights:
-                    if name.startswith("model.visual.") or name.startswith("visual."):
-                        continue
-                    if name.startswith("model.language_model."):
-                        name = "model." + name[len("model.language_model."):]
-                    yield name, tensor
+            def load_weights_with_prefix_fix(self, weights):
+                def remap_weights():
+                    for name, tensor in weights:
+                        if name.startswith("model.visual.") or name.startswith("visual."):
+                            continue
+                        if name.startswith("model.language_model."):
+                            name = "model." + name[len("model.language_model."):]
+                        yield name, tensor
 
-            return original_load_weights(self, remap_weights())
+                return original_load_weights(self, remap_weights())
 
-        qwen3_5.Qwen3_5ForCausalLMBase.load_weights = load_weights_with_prefix_fix
+            qwen3_5.Qwen3_5ForCausalLMBase.load_weights = load_weights_with_prefix_fix
+            print("INFO: Patched vLLM weight loading for multimodal-prefixed Qwen3.5 weights")
         ModelRegistry.register_model("Qwen3_5ForCausalLM", qwen3_5.Qwen3_5ForCausalLM)
         ModelRegistry.register_model("Qwen3_5MoeForCausalLM", qwen3_5.Qwen3_5MoeForCausalLM)
-        print("INFO: Patched vLLM registry and weight loading for Qwen3.5 text-only checkpoints")
+        print("INFO: Patched vLLM registry for Qwen3.5 text-only checkpoints")
 
     sampling_params = SamplingParams(
         temperature=0.0,
@@ -207,6 +231,7 @@ Examples:
         "tokenizer": tokenizer_source,
         "trust_remote_code": True,
         "dtype": args.dtype,
+        "quantization": args.quantization,
         "tensor_parallel_size": args.tensor_parallel_size,
         "gpu_memory_utilization": args.gpu_memory_utilization,
         "enforce_eager": args.enforce_eager,
@@ -217,6 +242,10 @@ Examples:
         "max_num_seqs": args.max_num_seqs,
         "max_num_batched_tokens": args.max_num_batched_tokens,
     }
+    if args.kv_cache_dtype:
+        llm_kwargs["kv_cache_dtype"] = args.kv_cache_dtype
+    if speculative_config:
+        llm_kwargs["speculative_config"] = speculative_config
     if args.max_model_len:
         llm_kwargs["max_model_len"] = args.max_model_len
     if is_qwen35:

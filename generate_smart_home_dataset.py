@@ -29,43 +29,43 @@ CANONICAL_DEVICES = ["light", "thermostat", "robot_vacuum", "timer", "curtain", 
 ROOMS = [r for r in CANONICAL_TARGETS if r != "default"]
 
 ROOM_ALIASES_ZH = {
-    "bathroom": ["廁所", "浴室", "洗手間"],
-    "kitchen": ["廚房"],
-    "bedroom": ["臥室", "主臥", "臥房"],
-    "living_room": ["客廳"],
-    "dining_room": ["餐廳", "飯廳"],
-    "study": ["書房", "辦公室"],
-    "balcony": ["陽台", "露台"],
-    "hallway": ["走廊", "走道"],
-    "entryway": ["玄關", "門口"],
-    "garage": ["車庫"],
-    "basement": ["地下室"],
-    "attic": ["閣樓"],
-    "laundry_room": ["洗衣間", "洗衣房"],
-    "closet": ["衣櫃間", "儲物間", "儲藏間", "衣櫃"],
-    "guest_room": ["客房"],
-    "nursery": ["嬰兒房", "兒童房", "育嬰室"],
-    "default": ["家裡", "全部", "全屋"],
+    "bathroom": ["廁所", "浴室", "洗手間", "衛浴", "廁間", "廁所間", "化妝室", "浴廁", "盥洗室"],
+    "kitchen": ["廚房", "流理台那邊", "料理區", "灶台", "廚具區", "備餐區"],
+    "bedroom": ["臥室", "主臥", "臥房", "房間", "睡房", "寢室", "我的房間", "我房間", "我房", "自己房間", "主臥室"],
+    "living_room": ["客廳", "大廳", "起居室", "沙發區", "電視區", "會客區"],
+    "dining_room": ["餐廳", "飯廳", "吃飯那邊", "餐桌那邊"],
+    "study": ["書房", "辦公室", "工作室", "辦公區", "電腦房", "閱讀室"],
+    "balcony": ["陽台", "露台", "前陽台", "後陽台", "戶外陽台"],
+    "hallway": ["走廊", "走道", "通道", "過道", "廊道"],
+    "entryway": ["玄關", "門口", "入口", "大門口", "前門", "進門處"],
+    "garage": ["車庫", "停車間", "車房"],
+    "basement": ["地下室", "地窖", "地下層"],
+    "attic": ["閣樓", "頂樓夾層", "屋頂夾層"],
+    "laundry_room": ["洗衣間", "洗衣房", "洗衣區", "曬衣間"],
+    "closet": ["衣櫃間", "儲物間", "儲藏間", "衣櫃", "收納間", "雜物間"],
+    "guest_room": ["客房", "客人房", "訪客房", "備用房"],
+    "nursery": ["嬰兒房", "兒童房", "育嬰室", "小孩房", "孩子房", "寶寶房"],
+    "default": ["家裡", "全部", "全屋", "全家", "整間家", "這裡", "這邊"],
 }
 
 ROOM_ALIASES_EN = {
-    "bathroom": ["bathroom", "restroom"],
-    "kitchen": ["kitchen"],
-    "bedroom": ["bedroom", "master bedroom"],
-    "living_room": ["living room", "lounge"],
-    "dining_room": ["dining room"],
-    "study": ["study", "office"],
-    "balcony": ["balcony", "patio", "porch"],
-    "hallway": ["hallway", "corridor", "hall"],
-    "entryway": ["entryway", "foyer", "entrance"],
-    "garage": ["garage"],
-    "basement": ["basement", "cellar"],
-    "attic": ["attic", "loft"],
-    "laundry_room": ["laundry room", "laundry"],
-    "closet": ["closet", "storage room"],
-    "guest_room": ["guest room", "spare room"],
-    "nursery": ["nursery", "baby room", "kids room"],
-    "default": ["the house", "everywhere"],
+    "bathroom": ["bathroom", "restroom", "washroom", "toilet", "loo", "powder room", "shower room", "bath", "half bath", "ensuite"],
+    "kitchen": ["kitchen", "cook room", "cooking area", "stove area", "sink area", "prep area"],
+    "bedroom": ["bedroom", "master bedroom", "primary bedroom", "my room", "my bedroom", "our room", "sleeping room", "bed room"],
+    "living_room": ["living room", "lounge", "family room", "sitting room", "front room", "TV room", "sofa area", "den area"],
+    "dining_room": ["dining room", "dining area", "dining space", "eating area", "table area"],
+    "study": ["study", "office", "home office", "work room", "workspace", "computer room", "den", "reading room"],
+    "balcony": ["balcony", "patio", "porch", "terrace", "deck", "veranda"],
+    "hallway": ["hallway", "corridor", "hall", "passage", "passageway"],
+    "entryway": ["entryway", "foyer", "entrance", "front door", "doorway", "entry", "mudroom"],
+    "garage": ["garage", "carport", "parking bay"],
+    "basement": ["basement", "cellar", "lower level", "downstairs"],
+    "attic": ["attic", "loft", "roof space"],
+    "laundry_room": ["laundry room", "laundry", "utility room", "wash room"],
+    "closet": ["closet", "storage room", "pantry", "cupboard", "wardrobe", "storage closet"],
+    "guest_room": ["guest room", "spare room", "visitor room"],
+    "nursery": ["nursery", "baby room", "kids room", "children's room", "child room", "playroom"],
+    "default": ["the house", "everywhere", "the whole house", "all rooms", "this place", "here"],
 }
 
 # lookup for detecting rooms in text
@@ -150,23 +150,23 @@ HOMOPHONES_EN = {
 }
 
 DEVICE_VARIANTS_EN = {
-    "light": ["light", "lights", "lamp", "lamps", "LEDs", "ceiling light", "bulbs", "lantern"],
-    "ac": ["AC", "air conditioner", "thermostat", "climate control", "HVAC", "heater"],
-    "tv": ["TV", "television", "telly", "screen", "display", "smart TV"],
-    "vacuum": ["vacuum", "robot vacuum", "roomba", "sweeper", "cleaner", "vac"],
-    "curtain": ["curtain", "curtains", "drapes", "shades", "blinds", "shutters", "window shades", "window blinds", "roller shades", "blackout curtains"],
-    "fan": ["fan", "ceiling fan", "standing fan", "ventilator", "desk fan"],
-    "speaker": ["speaker", "stereo", "sound system", "audio", "smart speaker", "music"],
+    "light": ["light", "lights", "lamp", "lamps", "LEDs", "ceiling light", "bulbs", "lantern", "lighting", "fixture", "night light", "strip light", "wall light", "floor lamp", "desk lamp", "downlight", "spotlight"],
+    "ac": ["AC", "air conditioner", "air conditioning", "thermostat", "climate control", "HVAC", "heater", "heat", "heating", "cooling", "cooler", "mini split", "aircon", "heat pump"],
+    "tv": ["TV", "television", "telly", "screen", "display", "smart TV", "monitor", "set-top box", "projector"],
+    "vacuum": ["vacuum", "robot vacuum", "roomba", "sweeper", "cleaner", "vac", "mop", "robot cleaner", "floor cleaner"],
+    "curtain": ["curtain", "curtains", "drapes", "shades", "blinds", "shutters", "window shades", "window blinds", "roller shades", "blackout curtains", "venetian blinds", "roman shades"],
+    "fan": ["fan", "ceiling fan", "standing fan", "ventilator", "desk fan", "box fan", "tower fan", "circulator", "exhaust fan", "air circulator"],
+    "speaker": ["speaker", "stereo", "sound system", "audio", "smart speaker", "music", "player", "soundbar", "radio", "receiver"],
 }
 
 DEVICE_VARIANTS_ZH = {
-    "light": ["燈", "電燈", "照明", "檯燈", "吊燈", "吸頂燈", "LED燈", "燈泡", "夜燈"],
-    "ac": ["冷氣", "空調", "冷氣機", "恆溫器", "暖氣"],
-    "tv": ["電視", "電視機", "螢幕", "顯示器", "智慧電視"],
-    "vacuum": ["掃地機", "吸塵器", "掃地機器人", "拖地機", "清潔機器人"],
-    "curtain": ["窗簾", "布簾", "百葉窗", "捲簾", "遮光簾"],
-    "fan": ["風扇", "電風扇", "吊扇", "循環扇", "立扇"],
-    "speaker": ["喇叭", "音響", "揚聲器", "播放器", "智慧音箱"],
+    "light": ["燈", "電燈", "照明", "檯燈", "台燈", "吊燈", "吸頂燈", "LED燈", "燈泡", "夜燈", "壁燈", "落地燈", "崁燈", "投射燈"],
+    "ac": ["冷氣", "空調", "冷氣機", "恆溫器", "暖氣", "暖氣機", "空調機", "除濕機", "熱泵"],
+    "tv": ["電視", "電視機", "螢幕", "顯示器", "智慧電視", "電視盒", "投影機"],
+    "vacuum": ["掃地機", "吸塵器", "掃地機器人", "拖地機", "清潔機器人", "掃地機器"],
+    "curtain": ["窗簾", "布簾", "百葉窗", "捲簾", "遮光簾", "紗簾", "窗紗", "羅馬簾", "風琴簾"],
+    "fan": ["風扇", "電風扇", "吊扇", "循環扇", "立扇", "桌扇", "排風扇", "換氣扇", "空氣循環扇"],
+    "speaker": ["喇叭", "音響", "揚聲器", "播放器", "智慧音箱", "音樂", "聲霸", "收音機"],
 }
 
 EXPLICIT_DEVICE_KEYWORDS = {
@@ -292,12 +292,24 @@ ZH_REPHRASE_PAIRS = [
 
 def to_zh_count(n: int) -> str:
     if n == 2: return random.choice(["兩", "二"])
-    mapping = {0:"零", 1:"一", 2:"二", 3:"三", 4:"四", 5:"五", 6:"六", 7:"七", 8:"八", 9:"九", 10:"十"}
+    mapping = {0:"零", 1:"一", 2:"二", 3:"三", 4:"四", 5:"五", 6:"六", 7:"七", 8:"八", 9:"九", 10:"十", 100:"一百"}
     if 10 < n < 20:
         return "十" + mapping.get(n-10, str(n-10))
     if 20 <= n < 100:
         tens, ones = n // 10, n % 10
         return mapping[tens] + "十" + (mapping.get(ones, "") if ones else "")
+    return mapping.get(n, str(n))
+
+
+def to_en_count(n: int) -> str:
+    mapping = {
+        1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+        6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+        12: "twelve", 15: "fifteen", 20: "twenty", 25: "twenty five",
+        30: "thirty", 40: "forty", 45: "forty five", 50: "fifty",
+        60: "sixty", 70: "seventy", 75: "seventy five", 80: "eighty",
+        90: "ninety", 100: "one hundred",
+    }
     return mapping.get(n, str(n))
 
 
@@ -317,6 +329,14 @@ ZH_DIGIT_WORDS = {
 def zh_percent_forms(value: int) -> List[str]:
     """Return common Chinese surface forms for percentage values."""
     forms = [f"{value}%", f"百分之{value}"]
+    if value == 100:
+        forms.extend(["百分之百", "全開", "滿"])
+    elif value == 50:
+        forms.extend(["一半", "二分之一"])
+    elif value == 25:
+        forms.append("四分之一")
+    elif value == 75:
+        forms.append("四分之三")
 
     # x0% -> x成 forms (e.g., 40% -> 四成)
     if value % 10 == 0 and 10 <= value <= 90:
@@ -410,13 +430,7 @@ def apply_code_switching(text: str, main_lang: str) -> str:
         return text
     
     if main_lang == "zh":
-        for room, aliases in ROOM_ALIASES_ZH.items():
-            if room == "default":
-                continue
-            for alias in aliases:
-                if alias in text:
-                    replacement = random.choice(ROOM_ALIASES_EN.get(room, [room]))
-                    return text.replace(alias, f" {replacement} ", 1).strip()
+        return text
     else:
         for room, aliases in ROOM_ALIASES_EN.items():
             if room == "default":
@@ -735,6 +749,14 @@ def infer_media_device_from_text(text: str) -> Optional[str]:
         return next(iter(found))
     return None
 
+def infer_climate_mode_from_text(text: str) -> Optional[str]:
+    text_lower = text.lower()
+    if any(word in text_lower for word in ["暖氣", "暖氣機", "heater", "heating", "heat"]):
+        return "heat"
+    if any(word in text_lower for word in ["冷氣", "冷器", "冷企", "空調", "冷氣機", "ac", "air conditioner", "air conditioning", "cooling", "cooler", "aircon"]):
+        return "cool"
+    return None
+
 # Domain generators
 
 def gen_lights() -> Example:
@@ -942,7 +964,7 @@ def gen_climate() -> Example:
                         "it's boiling in here", "so hot in here", "I'm dying of heat",
                         "it feels like a sauna", "need some cool air", "can't stand the heat",
                     ]
-            action, state = "turn_on", "on"
+            value, mode = 24, "cool"
         else:
             if lang == "zh":
                 if include_room_in_structure:
@@ -967,12 +989,12 @@ def gen_climate() -> Example:
                         "way too cold", "it's like a freezer in here", "I'm so cold",
                         "brr it's cold", "need some heat", "I can see my breath",
                     ]
-            action, state = "turn_off", "off"
+            value, mode = 22, "heat"
 
         raw_text = humanize_text(random.choice(phrases), lang)
         final_target = finalize_target(raw_text)
-        slots = make_slots(device="thermostat")
-        return emit_command("climate", action, final_target, state, slots, raw_text)
+        slots = make_slots(device="thermostat", value=value, unit="celsius", mode=mode)
+        return emit_command("climate", "set", final_target, None, slots, raw_text)
 
     # Temperature setting (35%)
     if random.random() < 0.35:
@@ -1071,7 +1093,7 @@ def gen_climate() -> Example:
     st = random.choice(structures)
     raw_text = humanize_text(st, lang)
     final_target = finalize_target(raw_text)
-    slots = make_slots(device="thermostat")
+    slots = make_slots(device="thermostat", mode=infer_climate_mode_from_text(raw_text) if onoff == "on" else None)
     return emit_command("climate", action, final_target, onoff, slots, raw_text)
 
 
@@ -1195,6 +1217,8 @@ def gen_timer() -> Example:
             f"{val_str}{u_str}後提醒我",
             f"倒數{val_str}{u_str}",
             f"計時{val_str}{u_str}",
+            f"{val_str}{u_str}的計時開著",
+            f"{val_str}{u_str}短計時開一下",
             f"設定{val_str}{u_str}倒數計時",
             f"幫我計時{val_str}{u_str}",
             f"定時{val_str}{u_str}",
@@ -1211,24 +1235,25 @@ def gen_timer() -> Example:
     else:
         u_str = unit
         u_singular = unit.rstrip("s") if val == 1 else unit
+        val_surface = to_en_count(val) if random.random() < 0.25 else str(val)
         structures = [
-            f"set a {val} {u_str} timer",
-            f"remind me in {val} {u_str}",
-            f"timer {val} {u_str}",
-            f"alert me in {val} {u_str}",
-            f"countdown {val} {u_str}",
-            f"set timer for {val} {u_str}",
-            f"start a {val} {u_singular} timer",
-            f"{val} {u_singular} timer",
-            f"wake me up in {val} {u_str}",
-            f"notify me in {val} {u_str}",
-            f"I need a {val} {u_singular} timer",
-            f"can you set a {val} {u_singular} timer",
-            f"give me a {val} {u_singular} countdown",
-            f"ping me in {val} {u_str}",
-            f"remind me after {val} {u_str}",
-            f"set up a {val} {u_singular} countdown",
-            f"in {val} {u_str} give me a heads up",
+            f"set a {val_surface} {u_str} timer",
+            f"remind me in {val_surface} {u_str}",
+            f"timer {val_surface} {u_str}",
+            f"alert me in {val_surface} {u_str}",
+            f"countdown {val_surface} {u_str}",
+            f"set timer for {val_surface} {u_str}",
+            f"start a {val_surface} {u_singular} timer",
+            f"{val_surface} {u_singular} timer",
+            f"wake me up in {val_surface} {u_str}",
+            f"notify me in {val_surface} {u_str}",
+            f"I need a {val_surface} {u_singular} timer",
+            f"can you set a {val_surface} {u_singular} timer",
+            f"give me a {val_surface} {u_singular} countdown",
+            f"ping me in {val_surface} {u_str}",
+            f"remind me after {val_surface} {u_str}",
+            f"set up a {val_surface} {u_singular} countdown",
+            f"in {val_surface} {u_str} give me a heads up",
         ]
 
     raw_text = humanize_text(random.choice(structures), lang)
@@ -1287,7 +1312,7 @@ def gen_curtain() -> Example:
         return emit_command("curtain", action, final_target, None, slots, raw_text)
 
     if action_type == "partial":
-        percentage = random.choice([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90])
+        percentage = random.choice([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100])
         if lang == "zh":
             p_surface = pick_zh_percent_surface(percentage, prefer_cheng=(random.random() < 0.70))
             if include_room_in_structure:
@@ -1295,6 +1320,7 @@ def gen_curtain() -> Example:
                     f"{room_word}{dev_word}開{p_surface}", f"把{room_word}{dev_word}開到{p_surface}",
                     f"{room_word}的{dev_word}調到{p_surface}", f"把{room_word}{dev_word}拉到{p_surface}",
                     f"{room_word}{dev_word}停在{p_surface}開度",
+                    f"{room_word}{dev_word}只留{p_surface}開",
                 ]
             else:
                 structures = [
@@ -1302,6 +1328,7 @@ def gen_curtain() -> Example:
                     f"{dev_word}調到{p_surface}", f"{dev_word}{p_surface}",
                     f"把{dev_word}拉到{p_surface}",
                     f"窗簾停在{p_surface}開度",
+                    f"窗簾只留{p_surface}開",
                 ]
         else:
             if include_room_in_structure:
@@ -1312,10 +1339,11 @@ def gen_curtain() -> Example:
                     f"put the {room_word} {dev_word} at {percentage}%",
                 ]
             else:
+                percent_surface = to_en_count(percentage) if random.random() < 0.20 else str(percentage)
                 structures = [
-                    f"open {dev_word} {percentage}%", f"set {dev_word} to {percentage}%",
-                    f"{dev_word} at {percentage} percent", f"{dev_word} {percentage}%",
-                    f"put the {dev_word} at {percentage}%",
+                    f"open {dev_word} {percent_surface}%", f"set {dev_word} to {percent_surface}%",
+                    f"{dev_word} at {percent_surface} percent", f"{dev_word} {percent_surface}%",
+                    f"put the {dev_word} at {percent_surface}%",
                 ]
 
         st = random.choice(structures)
@@ -1537,14 +1565,18 @@ def gen_media() -> Example:
 
         if numeric:
             if lang == "zh":
+                vol_surface = to_zh_count(vol) if random.random() < 0.35 else str(vol)
                 structures = [
-                    f"音量調到{vol}", f"音量{vol}", f"把音量設成{vol}",
-                    f"音量調{vol}", f"聲音調到{vol}",
+                    f"音量調到{vol_surface}", f"音量{vol_surface}", f"把音量設成{vol_surface}",
+                    f"音量調{vol_surface}", f"聲音調到{vol_surface}",
+                    f"聲音留在{vol_surface}", f"音量固定在{vol_surface}",
                 ]
             else:
+                vol_surface = to_en_count(vol) if random.random() < 0.20 else str(vol)
                 structures = [
-                    f"set volume to {vol}", f"volume {vol}", f"volume at {vol}",
-                    f"make it volume {vol}", f"put the volume at {vol}",
+                    f"set volume to {vol_surface}", f"volume {vol_surface}", f"volume at {vol_surface}",
+                    f"make it volume {vol_surface}", f"put the volume at {vol_surface}",
+                    f"leave the volume at {vol_surface}",
                 ]
             slots = make_slots(value=str(vol), mode="volume")
         else:
@@ -1579,14 +1611,18 @@ def gen_media() -> Example:
 
         if numeric:
             if lang == "zh":
+                vol_surface = to_zh_count(vol) if random.random() < 0.35 else str(vol)
                 structures = [
-                    f"{dev_word}音量調到{vol}", f"{dev_word}音量{vol}",
-                    f"把{dev_word}音量設成{vol}", f"{dev_word}聲音調到{vol}",
+                    f"{dev_word}音量調到{vol_surface}", f"{dev_word}音量{vol_surface}",
+                    f"把{dev_word}音量設成{vol_surface}", f"{dev_word}聲音調到{vol_surface}",
+                    f"{dev_word}音量留在{vol_surface}",
                 ]
             else:
+                vol_surface = to_en_count(vol) if random.random() < 0.20 else str(vol)
                 structures = [
-                    f"set {dev_word} volume to {vol}", f"{dev_word} volume {vol}",
-                    f"put the {dev_word} at volume {vol}", f"{dev_word} at {vol}",
+                    f"set {dev_word} volume to {vol_surface}", f"{dev_word} volume {vol_surface}",
+                    f"put the {dev_word} at volume {vol_surface}", f"{dev_word} at {vol_surface}",
+                    f"leave the {dev_word} volume at {vol_surface}",
                 ]
             slots = make_slots(device=media_type, value=str(vol), mode="volume")
         else:
@@ -1617,15 +1653,19 @@ def gen_media() -> Example:
 
         if numeric:
             if lang == "zh":
+                ch_surface = to_zh_count(ch) if random.random() < 0.35 else str(ch)
                 structures = [
-                    f"轉到{ch}台", f"{dev_word}切到{ch}台",
-                    f"切{ch}台", f"轉{ch}台", f"換到{ch}台",
+                    f"轉到{ch_surface}台", f"{dev_word}切到{ch_surface}台",
+                    f"切{ch_surface}台", f"轉{ch_surface}台", f"換到{ch_surface}台",
+                    f"調到{ch_surface}台", f"幫我調到{ch_surface}台",
                 ]
             else:
+                ch_surface = to_en_count(ch) if random.random() < 0.20 else str(ch)
                 structures = [
-                    f"channel {ch}", f"switch to channel {ch}",
-                    f"go to channel {ch}", f"put on channel {ch}",
-                    f"change to channel {ch}",
+                    f"channel {ch_surface}", f"switch to channel {ch_surface}",
+                    f"go to channel {ch_surface}", f"put on channel {ch_surface}",
+                    f"change to channel {ch_surface}", f"tune to channel {ch_surface}",
+                    f"take me to channel {ch_surface}",
                 ]
             slots = make_slots(device="tv", value=str(ch), mode="channel")
         else:
@@ -1737,6 +1777,7 @@ def gen_meta_command_negative() -> Example:
             "開燈", "把燈打開", "關燈", "把燈關掉",
             "開窗簾", "把窗簾打開", "關窗簾", "把窗簾關上",
             "設兩秒計時器", "設定計時器", "調低電視音量",
+            "開風扇", "關冷氣", "掃地機開始清掃",
         ])
         templates = [
             f"我說「{command_like}」只是在舉例，不是要你操作",
@@ -1749,6 +1790,12 @@ def gen_meta_command_negative() -> Example:
             f"如果我說{command_like}，那也只是例子",
             f"不是要你{command_like}，我只是聊天",
             f"先別動，我還沒要你{command_like}",
+            f"{command_like}只是我重複別人的話，不是命令",
+            f"我剛剛是在引用{command_like}，不要執行",
+            f"{command_like}那段是引述，不用照做",
+            "開窗簾那句收回，不用理",
+            "剛剛說開窗簾收回，不用理",
+            "開窗簾只是口誤，不用理",
             "pause the TV 只是示範說法，別真的執行",
             "pause the TV 那句別當真",
             "pause the TV 那句只是示範",
@@ -1759,10 +1806,14 @@ def gen_meta_command_negative() -> Example:
             "pause the TV", "stop the TV", "turn on the lights",
             "turn off the lights", "open the curtains", "close the curtains",
             "set a two second timer", "turn the TV volume down",
+            "turn on the fan", "turn off the AC", "start the vacuum",
         ])
         templates = [
             f"I said \"{command_like}\" as an example, not as a command",
             f"The phrase \"{command_like}\" was just something I was quoting",
+            f"Again, {command_like} was just something I was quoting back, not asking for",
+            f"{command_like} was just something I was quoting back, not asking for",
+            f"I was only quoting back {command_like}, not asking you to do it",
             f"Cancel the part where I said {command_like}; do not execute it",
             f"When I said {command_like}, I was explaining the wording",
             f"Do not treat {command_like} as a device instruction",
@@ -1771,6 +1822,9 @@ def gen_meta_command_negative() -> Example:
             f"If I say {command_like}, that is only an example",
             f"I am not asking you to {command_like}; I am just talking",
             f"Hold on, I am not telling you to {command_like}",
+            f"{command_like} was quoted from the message, not a request",
+            f"I was repeating someone saying {command_like}, not giving an instruction",
+            f"Please ignore the phrase {command_like}; it was not meant as a command",
         ]
 
     raw_text = inject_punctuation_variation(
@@ -1788,7 +1842,7 @@ def gen_percent_cheng_command() -> Example:
     include_room_in_structure = (base_room != "default") and (random.random() < 0.70)
     room_word = pick_room_word(base_room, "zh") if include_room_in_structure else ""
 
-    percentage = random.choice([20, 25, 30, 40, 50, 60, 70, 75, 80, 90])
+    percentage = random.choice([20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100])
     p_surface = pick_zh_percent_surface(percentage, prefer_cheng=True)
 
     if domain == "lights":
@@ -1799,6 +1853,7 @@ def gen_percent_cheng_command() -> Example:
                 f"把{room_word}{dev_word}調到{p_surface}",
                 f"{room_word}亮度調成{p_surface}",
                 f"{room_word}的燈留{p_surface}",
+                f"{room_word}燈光固定在{p_surface}",
             ]
         else:
             structures = [
@@ -1806,6 +1861,7 @@ def gen_percent_cheng_command() -> Example:
                 f"亮度調成{p_surface}",
                 f"把燈調到{p_surface}",
                 f"燈留{p_surface}",
+                f"燈光固定在{p_surface}",
             ]
 
         raw_text = humanize_text(random.choice(structures), "zh")
@@ -1820,6 +1876,7 @@ def gen_percent_cheng_command() -> Example:
             f"把{room_word}{dev_word}停在{p_surface}開度",
             f"{room_word}窗簾留{p_surface}",
             f"{room_word}窗簾停在{p_surface}開度",
+            f"{room_word}窗簾只留{p_surface}開",
         ]
     else:
         structures = [
@@ -1827,6 +1884,7 @@ def gen_percent_cheng_command() -> Example:
             f"窗簾留{p_surface}",
             f"窗簾停在{p_surface}開度",
             f"百葉簾維持{p_surface}開",
+            f"窗簾只留{p_surface}開",
         ]
 
     raw_text = humanize_text(random.choice(structures), "zh")
@@ -1931,6 +1989,8 @@ def gen_hard_negative() -> Example:
             f"{dev_word}發出怪聲",
             f"{dev_word}閃爍不停",
             f"這個{dev_word}好吵",
+            f"{room_word}的{dev_word}卡住了而已",
+            f"{room_word}{dev_word}卡住了而已",
             f"{dev_word}需要換了",
             f"{room_word}的{dev_word}沒反應",
             f"{dev_word}好像沒電了",
@@ -2026,6 +2086,9 @@ def gen_hard_negative() -> Example:
             f"The {dev_word} is making a weird noise",
             f"The {dev_word} keeps flickering",
             f"This {dev_word} is so loud",
+            f"The {room_word} {dev_word} is stuck",
+            f"The {room_word} {dev_word} is stuck, that's all",
+            f"The {dev_word} jammed again",
             f"The {dev_word} needs to be replaced",
             f"The {room_word} {dev_word} isn't responding",
             f"The {dev_word} seems dead",
