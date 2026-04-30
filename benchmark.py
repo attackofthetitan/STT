@@ -41,7 +41,7 @@ SOURCE_KEY = "_eval_source"
 def sample_jsonl(path: Path, sample_count: int) -> list[dict]:
     with path.open("r", encoding="utf-8") as f:
         rows = [json.loads(line) for line in f if line.strip()]
-    return random.sample(rows, sample_count)
+    return random.sample(rows, min(sample_count, len(rows)))
 
 
 def has_language_model_weight_prefix(model_path: Path) -> bool:
@@ -68,6 +68,10 @@ Examples:
 
   # Benchmark a prebuilt JSONL dataset
   python benchmark.py --dataset smart_home_ood_test.jsonl --samples 500
+
+  # Convert a public benchmark first, then run it
+  python scripts/build_public_benchmark.py fluent --input fluent_speech_commands_dataset --output fluent_bench.jsonl
+  python benchmark.py --dataset fluent_bench.jsonl --samples 500
         """,
     )
     parser.add_argument("--model", default=DEFAULT_MODEL, help="HF model ID or local model directory")

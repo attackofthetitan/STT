@@ -326,11 +326,13 @@ ZH_DIGIT_WORDS = {
 }
 
 
-def zh_percent_forms(value: int) -> List[str]:
+def zh_percent_forms(value: int, include_full_open_aliases: bool = False) -> List[str]:
     """Return common Chinese surface forms for percentage values."""
     forms = [f"{value}%", f"百分之{value}"]
     if value == 100:
-        forms.extend(["百分之百", "全開", "滿"])
+        forms.append("百分之百")
+        if include_full_open_aliases:
+            forms.extend(["全開", "滿"])
     elif value == 50:
         forms.extend(["一半", "二分之一"])
     elif value == 25:
@@ -361,8 +363,12 @@ def zh_percent_forms(value: int) -> List[str]:
     return list(dict.fromkeys(forms))
 
 
-def pick_zh_percent_surface(value: int, prefer_cheng: bool = False) -> str:
-    forms = zh_percent_forms(value)
+def pick_zh_percent_surface(
+    value: int,
+    prefer_cheng: bool = False,
+    include_full_open_aliases: bool = False,
+) -> str:
+    forms = zh_percent_forms(value, include_full_open_aliases=include_full_open_aliases)
     if not prefer_cheng:
         return random.choice(forms)
 
@@ -885,12 +891,16 @@ def gen_lights() -> Example:
                 f"把{room_word}{dev_word}{verb}", f"把{room_word}的{dev_word}{verb}",
                 f"{room_word}的{dev_word}幫我{verb}", f"我要{verb}{room_word}{dev_word}",
                 f"幫我{verb}{room_word}的{dev_word}",
+                f"{room_word}{dev_word}{'全開' if onoff == 'on' else '全關'}",
+                f"把{room_word}{dev_word}{'全點亮' if onoff == 'on' else '全關'}",
             ]
         else:
             structures = [
                 f"{verb}{dev_word}", f"把{dev_word}{verb}",
                 f"幫我{verb}{dev_word}", f"我要{verb}{dev_word}",
                 f"{dev_word}幫我{verb}", f"可以{verb}{dev_word}嗎",
+                f"{dev_word}{'全開' if onoff == 'on' else '全關'}",
+                f"把{dev_word}{'全開起來' if onoff == 'on' else '全關'}",
             ]
     else:
         verbs_on = ["turn on", "switch on", "flip on", "put on"]
@@ -1172,8 +1182,8 @@ def gen_vacuum() -> Example:
     if lang == "zh":
         v_map = {
             "start": ["開始掃地", "啟動", "開始打掃", "開始清潔", "去掃地", "出動"],
-            "stop": ["停止", "停", "不要掃了", "停下來", "別掃了", "先停在這裡", "這輪先停在這裡"],
-            "pause": ["暫停", "等一下", "先停一下", "暫時停止"],
+            "stop": ["停止", "停止清掃", "不要掃了", "別掃了", "結束清掃", "這輪結束"],
+            "pause": ["暫停", "等一下", "先停一下", "暫時停止", "先停住", "先停在這裡"],
         }
         structures = [f"{dev_word}{random.choice(v_map[act])}", f"叫{dev_word}{random.choice(v_map[act])}"]
     else:
@@ -1226,6 +1236,7 @@ def gen_timer() -> Example:
             f"{val_str}{u_str}後叫我",
             f"設個{val_str}{u_str}的定時器",
             f"幫我倒數{val_str}{u_str}",
+            f"{val_str}{u_str}先幫我倒著算",
             f"再{val_str}{u_str}提醒我一下",
             f"過{val_str}{u_str}叫我一聲",
             f"給我一個{val_str}{u_str}倒數",
@@ -1280,8 +1291,8 @@ def gen_curtain() -> Example:
             action = "close"
             if lang == "zh":
                 phrases = [
-                    "太陽好大", "陽光太刺眼", "太曬了", "光線太強了",
-                    "被太陽照到了", "好刺眼", "陽光進來了",
+                    "太陽好大", "陽光太刺眼", "太曬了", "窗邊光線太強了",
+                    "被太陽照到了", "陽光進來了",
                 ]
             else:
                 phrases = [
@@ -1314,7 +1325,11 @@ def gen_curtain() -> Example:
     if action_type == "partial":
         percentage = random.choice([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100])
         if lang == "zh":
-            p_surface = pick_zh_percent_surface(percentage, prefer_cheng=(random.random() < 0.70))
+            p_surface = pick_zh_percent_surface(
+                percentage,
+                prefer_cheng=(random.random() < 0.70),
+                include_full_open_aliases=True,
+            )
             if include_room_in_structure:
                 structures = [
                     f"{room_word}{dev_word}開{p_surface}", f"把{room_word}{dev_word}開到{p_surface}",
@@ -1717,16 +1732,16 @@ def gen_media() -> Example:
         vmap_variants = {
             "play": ["播放", "放", "繼續播放", "繼續放", "開始播", "繼續播"],
             "pause": ["暫停", "停一下", "暫時停止", "先停一下"],
-            "next": ["下一首", "下一個", "下一曲", "切下一首", "跳下一首"],
-            "previous": ["上一首", "上一個", "上一曲", "切上一首", "回上一首"],
+            "next": ["下一首", "下一段", "下一曲", "切下一首", "跳下一首", "播下一段"],
+            "previous": ["上一首", "上一段", "上一曲", "切上一首", "回上一首"],
             "stop": ["停止", "停止播放", "不要放了", "先不要播了"],
         }
         verb_phrase = random.choice(vmap_variants[action])
         if action in ["next", "previous"]:
             switched = verb_phrase if verb_phrase.startswith("切") else f"切{verb_phrase}"
             structures = [
-                f"{dev_word}{verb_phrase}", verb_phrase, switched, f"幫我{verb_phrase}",
-                f"{verb_phrase}一下", f"{dev_word}{verb_phrase}一下",
+                f"{dev_word}{verb_phrase}", switched, f"{dev_word}{switched}",
+                f"幫我{dev_word}{verb_phrase}", f"{dev_word}{verb_phrase}一下",
             ]
         else:
             structures = [
@@ -1843,9 +1858,9 @@ def gen_percent_cheng_command() -> Example:
     room_word = pick_room_word(base_room, "zh") if include_room_in_structure else ""
 
     percentage = random.choice([20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 100])
-    p_surface = pick_zh_percent_surface(percentage, prefer_cheng=True)
 
     if domain == "lights":
+        p_surface = pick_zh_percent_surface(percentage, prefer_cheng=True)
         dev_word = get_granular_device("light", "zh")
         if include_room_in_structure:
             structures = [
@@ -1869,6 +1884,11 @@ def gen_percent_cheng_command() -> Example:
         slots = make_slots(device="light", value=percentage, unit="percent")
         return emit_command("lights", "set", final_target, None, slots, raw_text)
 
+    p_surface = pick_zh_percent_surface(
+        percentage,
+        prefer_cheng=True,
+        include_full_open_aliases=True,
+    )
     dev_word = get_granular_device("curtain", "zh")
     if include_room_in_structure:
         structures = [
@@ -2260,6 +2280,8 @@ def gen_transcript() -> Example:
             "Let me see", "How do I say this", "By the way", "Oh right", "Ah",
             "Never mind", "Forget it", "Okay then", "Whatever", "Sure",
             "I guess", "Maybe", "I don't know", "Not sure", "Interesting",
+            "Give me a second", "Give me a second, I'm not done thinking",
+            "Just a second, I'm still thinking",
         ]
         
         # Life events / Stories  
